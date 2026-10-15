@@ -98,7 +98,13 @@
   import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
   import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import OpenInWindowButton from "../components/layout/OpenInWindowButton.svelte";
-  import { worldData, worldLoading, worldFissureMode } from "../stores/world.js";
+  import { worldData, worldLabels, worldLoading, worldFissureMode } from "../stores/world.js";
+  import {
+    bountyStageLabel,
+    cyclePlaceLabel,
+    rewardItemLabel,
+    worldLabel,
+  } from "../lib/world/worldLabels.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
     buildBountyGroups,
@@ -332,7 +338,10 @@
 
   $: bountyTimers = buildBountyTimers(bounties, nowMs, nowCoarseMs);
 
-  $: baroLocation = typeof baro?.location === "string" && baro.location ? baro.location : null;
+  $: baroLocation =
+    typeof baro?.location === "string" && baro.location
+      ? worldLabel($worldLabels, baro.location)
+      : null;
 
   $: baroOwnedSet = buildBaroOwnedSet($inventoryData);
 
@@ -495,11 +504,11 @@
                     row.key === "duviri"}
                   {@const alertOn = isAlertable && !!$overlaySettings.cycleAlerts?.[row.key]}
                   <CycleRow
-                    name={titleCase(row.key)}
+                    name={cyclePlaceLabel($worldLabels, row.key) ?? titleCase(row.key)}
                     iconSrc={row.src}
-                    stateLabel={row.stateLabel}
+                    stateLabel={worldLabel($worldLabels, row.stateLabel)}
                     stateClass={row.stateClass}
-                    nextLabel={row.nextLabel}
+                    nextLabel={worldLabel($worldLabels, row.nextLabel)}
                     time={row.time}
                     urgent={row.urgent}
                     alertKey={isAlertable ? row.key : null}
@@ -674,7 +683,7 @@
                   >{$tr("world.thisWeek")}</span
                 >
                 <span class="text-sm font-semibold text-warning flex-1 min-w-0"
-                  >{steelPathHonors.currentReward.name}</span
+                  >{worldLabel($worldLabels, steelPathHonors.currentReward.name)}</span
                 >
                 <span class="text-xs text-text-secondary whitespace-nowrap shrink-0"
                   >{$tr("world.steelEssenceCost", {
@@ -685,7 +694,9 @@
               {#each steelPathUpcoming as row}
                 <div class="flex items-center gap-2 py-0.5">
                   <span class="text-sm text-text-secondary shrink-0">{row.daysLabel}:</span>
-                  <span class="text-sm text-text-primary flex-1 min-w-0">{row.reward.name}</span>
+                  <span class="text-sm text-text-primary flex-1 min-w-0"
+                    >{worldLabel($worldLabels, row.reward.name)}</span
+                  >
                   <span class="text-xs text-text-secondary whitespace-nowrap shrink-0"
                     >{$tr("world.steelEssenceCost", { cost: row.reward.cost })}</span
                   >
@@ -716,24 +727,24 @@
                            {dealDb ? 'cursor-pointer hover:scale-105' : ''}"
                     disabled={!dealDb}
                     on:click={() => dealDb && openItemDetail(deal.uniqueName || "")}
-                    title={deal.item || $tr("common.unknown")}
+                    title={worldLabel($worldLabels, deal.item) || $tr("common.unknown")}
                   >
                     {#if dealImg}
                       <img
                         class="h-full w-full object-contain"
                         src={dealImg}
-                        alt={deal.item || ""}
+                        alt={worldLabel($worldLabels, deal.item)}
                         loading="lazy"
                       />
                     {:else}
                       <span class="text-2xl font-bold text-text-secondary opacity-40"
-                        >{(deal.item || "?")[0]}</span
+                        >{(worldLabel($worldLabels, deal.item) || "?")[0]}</span
                       >
                     {/if}
                   </button>
                   <div class="flex min-w-0 flex-col gap-0.5">
                     <span class="truncate text-sm font-semibold text-text-primary"
-                      >{deal.item || $tr("common.unknown")}</span
+                      >{worldLabel($worldLabels, deal.item) || $tr("common.unknown")}</span
                     >
                     <span class="text-xs text-text-secondary">
                       <strong class="text-accent">{deal.salePrice}p</strong>
@@ -806,11 +817,11 @@
                         src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default}
                         alt=""
                       />
-                      {f.tier}
+                      {worldLabel($worldLabels, f.tier)}
                     </span>
                     <span class="min-w-0 flex-1 text-sm">
                       <strong class="text-text-primary"
-                        >{f.missionType || $tr("common.mission")}</strong
+                        >{worldLabel($worldLabels, f.missionType) || $tr("common.mission")}</strong
                       >
                       {#if f.isHard && (f.sourceMode === "railjack" || $worldFissureMode === "all")}
                         <span
@@ -819,7 +830,7 @@
                         >
                       {/if}
                       <span class="ml-1.5 text-xs text-text-secondary opacity-75"
-                        >{f.node || $tr("common.unknown")}</span
+                        >{worldLabel($worldLabels, f.node) || $tr("common.unknown")}</span
                       >
                     </span>
                     <span
@@ -914,7 +925,7 @@
                         >
                           <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
                           <span class="text-lg font-semibold text-text-primary"
-                            >{group.syndicate}</span
+                            >{worldLabel($worldLabels, group.syndicate)}</span
                           >
                           {#if bountyTimers[group.syndicateKey]?.timeStr}
                             <span
@@ -937,10 +948,14 @@
                                 <span
                                   class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary"
                                 >
-                                  {titleCase(job.type)}
+                                  {worldLabel(
+                                    $worldLabels,
+                                    titleCase(job.type),
+                                    job.jobType ?? job.type,
+                                  )}
                                   {#if job.challengeDesc}
                                     <span class="text-text-secondary text-[0.92em]">
-                                      - {job.challengeDesc}</span
+                                      - {worldLabel($worldLabels, job.challengeDesc)}</span
                                     >
                                   {/if}
                                 </span>
@@ -965,7 +980,7 @@
                                           <div class="mb-1">
                                             <span
                                               class="text-base font-semibold text-text-secondary block mb-0.5"
-                                              >{sr.label}</span
+                                              >{bountyStageLabel(sr.label, $tr)}</span
                                             >
                                             <div class="flex flex-col gap-0.5">
                                               {#each sr.items as item}
@@ -990,7 +1005,7 @@
                                                     rewardUniqueName &&
                                                     openItemDetail(rewardUniqueName, [
                                                       {
-                                                        location: `${group.syndicate} ${$tr("world.bountyLabel")} (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`,
+                                                        location: `${worldLabel($worldLabels, group.syndicate)} ${$tr("world.bountyLabel")} (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${bountyStageLabel(sr.label, $tr)}`,
                                                         rarity: item.rarity,
                                                         chance: item.chance / 100,
                                                       },
@@ -1005,7 +1020,12 @@
                                                   {/if}
                                                   <span
                                                     class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-                                                    >{item.itemName}</span
+                                                    >{rewardItemLabel(
+                                                      item.itemName,
+                                                      rewardUniqueName
+                                                        ? $itemDb[rewardUniqueName]
+                                                        : null,
+                                                    )}</span
                                                   >
                                                   <span
                                                     class="ml-2 w-14 shrink-0 whitespace-nowrap text-right text-xs font-semibold tabular-nums"

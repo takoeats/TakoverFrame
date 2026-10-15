@@ -4,6 +4,7 @@
   import ThemedPanel from "../ThemedPanel.svelte";
   import type { TradeEvent } from "../../types/ipc.js";
   import { formatWfmAssetUrl } from "../../../config/shared/wfm.js";
+  import { tradeItemLabel } from "../../lib/takover/tradeItemLabel.js";
 
   export let trades: TradeEvent[] = [];
 
@@ -18,7 +19,11 @@
     if (tradeSearch) {
       const q = tradeSearch.toLowerCase();
       if (
-        !t.items.some((item) => item.displayName.toLowerCase().includes(q)) &&
+        !t.items.some(
+          (item) =>
+            item.displayName.toLowerCase().includes(q) ||
+            $tradeItemLabel(item.displayName).toLowerCase().includes(q),
+        ) &&
         !t.partner?.toLowerCase().includes(q)
       )
         return false;
@@ -190,7 +195,7 @@
                           ? 'text-danger'
                           : ''}">{item.direction === "received" ? "↓" : "↑"}</span
                     >
-                    {item.count > 1 ? `${item.count}×` : ""}{item.displayName}
+                    {item.count > 1 ? `${item.count}×` : ""}{$tradeItemLabel(item.displayName)}
                   </span>
                 {/each}
               </div>

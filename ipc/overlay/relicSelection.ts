@@ -24,6 +24,7 @@ import { aggregateComponentOwnership } from "../../config/shared/componentOwners
 import { ownedComponentCount } from "../../config/shared/componentNames";
 import { withoutFoundryPending } from "../../config/shared/foundryPending";
 import * as itemDatabase from "../../services/itemDatabase";
+import { squadOnlyPush } from "../../services/takover/overlaySquad";
 
 const RECOMMENDATION_SQUAD_SIZE = 4;
 const RECOMMENDATION_CACHE_TTL_MS = 10_000;
@@ -1015,6 +1016,14 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
   function setDesktopFilters(rawFilters: unknown): void {
     if (!rawFilters || typeof rawFilters !== "object" || Array.isArray(rawFilters)) return;
+    const squadOnly = squadOnlyPush(rawFilters);
+    if (squadOnly !== null) {
+      desktopSquadSize = squadOnly;
+      if (desktopFilters) desktopFilters = { ...desktopFilters, squadSize: squadOnly };
+      cache = null;
+      log.info(`[RelicSelection] squad size from planner: ${squadOnly}`);
+      return;
+    }
 
     const { tierFilter, neededRewardKeys, pinnedQualities, ...filters } =
       normalizeRelicOverlayFilterPush(

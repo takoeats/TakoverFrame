@@ -2,7 +2,8 @@
 
 const PUA_GLYPHS = /[\uE000-\uF8FF\uFFFD]+/g;
 const MOJIBAKE_GLYPHS = /[\u00EE\u00EF][\u0080-\u00BF]{2}/g;
-const TRAILING_NON_ASCII = /[\u0080-\uFFFF]+$/;
+// Hangul syllables are a Korean client's item names, not a glyph.
+const TRAILING_NON_ASCII = /[\u0080-\uABFF\uD7A4-\uFFFF]+$/;
 
 export function stripPlatformGlyphs(value: string): string {
   return value

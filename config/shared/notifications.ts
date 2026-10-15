@@ -113,6 +113,7 @@ const TRADE_STATUS_TITLES: Record<TradeNotificationStatus, string> = {
   "match-failed": "No Listing Matched",
   "close-failed": "Closing Failed",
   detected: "Trade Finished",
+  "price-low": "Below Listed Price",
 };
 
 export function tradeNotificationTitle(status: TradeNotificationStatus): string {

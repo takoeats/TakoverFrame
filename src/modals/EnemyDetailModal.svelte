@@ -279,8 +279,8 @@
               <tbody>
                 {#each drops as row (row.item + "|" + row.place + "|" + row.kind + "|" + row.rarity + "|" + row.chance)}
                   <tr class="border-t border-border/60">
-                    <td class="px-2.5 py-1 text-text-primary">{row.item}</td>
-                    <td class="px-2.5 py-1 text-text-secondary">{row.place}</td>
+                    <td class="px-2.5 py-1 text-text-primary">{row.itemLabel ?? row.item}</td>
+                    <td class="px-2.5 py-1 text-text-secondary">{row.placeLabel ?? row.place}</td>
                     <td class="whitespace-nowrap px-2.5 py-1 text-right">
                       <span class="font-semibold" style="color:{dropRarityColour(row.rarity)}"
                         >{row.rarity}</span

@@ -27,6 +27,9 @@ interface SyndicateTitle {
   sacrifice?: SyndicateSacrifice;
 }
 
+/** Game-language names by tag; titles are keyed by rank level. */
+export type SyndicateNames = Record<string, { name: string; titles: Record<string, string> }>;
+
 export interface SyndicateMeta {
   tag: string;
   name: string;

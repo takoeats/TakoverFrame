@@ -312,6 +312,12 @@ export function getWeaponNameByUniqueName(uniqueName: string): string | null {
   return _weaponByUniqueName.get(uniqueName) || null;
 }
 
+/** uniqueName for a riven weapon's English name, or null when unknown. */
+export function getWeaponUniqueName(weaponName: string): string | null {
+  ensureBuilt();
+  return _weaponByNameLc.get(weaponName.toLowerCase())?.uniqueName ?? null;
+}
+
 /** Returns weapon disposition by display name, or null when unknown. */
 export function getWeaponDisposition(weaponName: string): number | null {
   ensureBuilt();

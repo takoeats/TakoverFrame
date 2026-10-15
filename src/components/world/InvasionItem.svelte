@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Invasion } from "../../types/world.js";
   import { locale, tr } from "../../lib/i18n.js";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
+  import { worldLabels } from "../../stores/world.js";
 
   export let inv: Invasion;
 
@@ -16,12 +18,16 @@
     t: typeof $tr,
     localeCode: string,
     side: Invasion["attacker"] | Invasion["defender"],
+    labels: Record<string, string>,
   ): string {
     const r = side.reward;
     if (!r) return "";
     if (r.countedItems?.length > 0) {
       return r.countedItems
-        .map((ci) => (ci.count > 1 ? `${ci.count}x ${ci.type}` : ci.type))
+        .map((ci) => {
+          const name = worldLabel(labels, ci.type);
+          return ci.count > 1 ? `${ci.count}x ${name}` : name;
+        })
         .join(", ");
     }
     if (r.items?.length > 0) return r.items.join(", ");
@@ -41,7 +47,9 @@
          border-b border-dashed border-border-subtle last:border-b-0"
 >
   <div class="flex items-center gap-1.5">
-    <span class="text-base font-semibold text-text-primary">{inv.node}</span>
+    <span class="text-base font-semibold text-text-primary"
+      >{worldLabel($worldLabels, inv.node)}</span
+    >
   </div>
 
   <div class="flex items-center gap-1.5 text-base">
@@ -49,12 +57,13 @@
       class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}
-      class:world-faction-infested={attackerCls === "infested"}>{inv.attacker.faction}</span
+      class:world-faction-infested={attackerCls === "infested"}
+      >{worldLabel($worldLabels, inv.attacker.faction)}</span
     >
 
     <span
       class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap
-             text-right text-accent">{rewardLabel($tr, $locale, inv.attacker)}</span
+             text-right text-accent">{rewardLabel($tr, $locale, inv.attacker, $worldLabels)}</span
     >
 
     <span class="shrink-0 text-base font-bold uppercase text-text-muted opacity-45"
@@ -63,14 +72,15 @@
 
     <span
       class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap
-             text-left text-accent">{rewardLabel($tr, $locale, inv.defender)}</span
+             text-left text-accent">{rewardLabel($tr, $locale, inv.defender, $worldLabels)}</span
     >
 
     <span
       class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={defenderCls === "grineer"}
       class:world-faction-corpus={defenderCls === "corpus"}
-      class:world-faction-infested={defenderCls === "infested"}>{inv.defender.faction}</span
+      class:world-faction-infested={defenderCls === "infested"}
+      >{worldLabel($worldLabels, inv.defender.faction)}</span
     >
   </div>
 

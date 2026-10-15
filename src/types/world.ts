@@ -67,6 +67,11 @@ export interface Invasion {
 
 interface BountyJob {
   type: string;
+  /** Raw world-state jobs only: the job path its game-language title is keyed by. */
+  jobType?: string;
+  /** Oracle jobs only: the challenge path and ally its text is resolved from. */
+  challenge?: string;
+  ally?: string;
   enemyLevels: [number, number];
   /** Seed bounties only: 0-based tier; reward pools match by index, not level */
   tierIndex?: number;
@@ -235,5 +240,7 @@ export interface WorldState {
   invasions?: Invasion[];
   bounties?: SyndicateBounty[];
   bountyRotation?: string;
+  /** English text (or a job or challenge path) -> game-language label. */
+  labels?: Record<string, string>;
   [key: string]: unknown;
 }

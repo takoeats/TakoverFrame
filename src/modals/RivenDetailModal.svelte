@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
-  import { itemDb } from "../stores/data.js";
+  import { itemDb, rivenStatNames } from "../stores/data.js";
   import { PLATINUM_ICON_URL, STAT_ICON_URLS } from "../lib/assetUrls.js";
   import { invoke, send, tradeInvoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
@@ -13,7 +13,12 @@
     formatRivenListingStatValue,
   } from "../../renderer/riven-similarity.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
-  import { RIVEN_ATTR_GRADE_KEYS, RIVEN_TYPE_KEYS } from "../lib/rivenLabels.js";
+  import {
+    RIVEN_ATTR_GRADE_KEYS,
+    RIVEN_TYPE_KEYS,
+    rivenNameLabel,
+    rivenWeaponLabel,
+  } from "../lib/rivenLabels.js";
   import { rivenDissolveHint } from "../lib/rivens/dissolve.js";
   import { log } from "../lib/log.js";
   import {
@@ -428,7 +433,7 @@
                 </span>
                 <span
                   class="text-base text-text-primary overflow-hidden text-ellipsis whitespace-nowrap"
-                  >{stat.name}</span
+                  >{rivenNameLabel(stat.name, $rivenStatNames)}</span
                 >
               </div>
               {#if stat.grade}
@@ -457,7 +462,7 @@
       <div class="mt-5">
         <div class="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0">
-            {$tr("rivens.detail.bestAttributesFor", { weapon: riven.weaponName })}
+            {$tr("rivens.detail.bestAttributesFor", { weapon: rivenWeaponLabel(riven, $itemDb) })}
           </h3>
           <span class="text-xs text-text-muted" data-riven-dictionary-age>{dictionaryAgeLabel}</span
           >
@@ -483,7 +488,7 @@
                 <span
                   class="font-display text-xs py-0.5 px-1.5 rounded {matched
                     ? 'text-success bg-success-bg font-semibold'
-                    : 'text-text-muted'}">{attr}</span
+                    : 'text-text-muted'}">{rivenNameLabel(attr, $rivenStatNames)}</span
                 >
               {/each}
             </div>
@@ -500,7 +505,7 @@
                 <span
                   class="font-display text-xs py-0.5 px-1.5 rounded {matched
                     ? 'text-success bg-success-bg font-semibold'
-                    : 'text-text-muted'}">{attr}</span
+                    : 'text-text-muted'}">{rivenNameLabel(attr, $rivenStatNames)}</span
                 >
               {/each}
             </div>
@@ -567,7 +572,7 @@
                         : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}"
                     >
                       {formatRivenListingStatValue(s)}
-                      {s.name}
+                      {rivenNameLabel(s.name, $rivenStatNames)}
                     </div>
                   {/each}
                 </div>

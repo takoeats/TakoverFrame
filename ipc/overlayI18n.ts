@@ -1,5 +1,6 @@
 import de from "../src/i18n/de.json";
 import en from "../src/i18n/en.json";
+import ko from "../src/i18n/ko.json";
 import zh from "../src/i18n/zh.json";
 
 type MessageKey = keyof typeof en;
@@ -97,6 +98,7 @@ const OVERLAY_MESSAGE_KEYS = [
   "overlay.trade.closingFailed",
   "overlay.trade.listingClosed",
   "overlay.trade.noListingMatched",
+  "overlay.trade.priceLow",
   "overlay.trade.repAlready",
   "overlay.trade.repFailed",
   "overlay.trade.repNotFound",
@@ -119,7 +121,7 @@ const OVERLAY_MESSAGE_KEYS = [
 
 // Same fallback chain as the renderer: a locale may be partial and every hole
 // is served by English.
-const DICTIONARIES: Record<string, Dictionary> = { en, de, zh };
+const DICTIONARIES: Record<string, Dictionary> = { en, de, zh, ko };
 
 const DEFAULT_LOCALE = "en";
 let activeLocale = DEFAULT_LOCALE;

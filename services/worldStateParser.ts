@@ -710,7 +710,11 @@ const CHALLENGE_DESC_PREFIXES = [
 const DIFFICULTY_SUFFIXES = ["VeryHard", "Hard", "Normal", "Easy"];
 
 /** Resolve oracle challenge paths through their language dictionary keys. */
-function resolveChallengeInfo(challengePath: string, allyName?: string): { desc?: string } | null {
+function resolveChallengeInfo(
+  challengePath: string,
+  allyName?: string,
+  dictValue: (key: string) => string | null | undefined = (key) => REGION_TRANSLATION.dict[key],
+): { desc?: string } | null {
   if (!challengePath) return null;
 
   const slug = challengePath.split("/").pop() || "";
@@ -744,7 +748,7 @@ function resolveChallengeInfo(challengePath: string, allyName?: string): { desc?
   for (const candidate of candidates) {
     for (const prefix of CHALLENGE_DESC_PREFIXES) {
       const descKey = prefix + candidate + "_Desc";
-      const desc = REGION_TRANSLATION.dict[descKey];
+      const desc = dictValue(descKey);
       if (desc) {
         return {
           desc: cleanChallengeText(desc, allyName, count),
@@ -772,6 +776,13 @@ function resolveAllyName(allyPath: string | undefined): string | undefined {
   if (!allyPath) return undefined;
   const slug = allyPath.split("/").pop() || "";
   return slug.replace(/AllyAgent$/, "") || undefined;
+}
+
+/** The bounty challenge text in the game language, for the renderer's labels. */
+export function localizedChallengeDesc(challengePath: string, allyPath?: string): string | null {
+  return (
+    resolveChallengeInfo(challengePath, resolveAllyName(allyPath), localizedDictValue)?.desc ?? null
+  );
 }
 
 export function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
@@ -808,7 +819,13 @@ export function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
         tierIndex: index,
         standingStages: stages,
         minMR: 0,
-        ...(challengeInfo?.desc ? { challengeDesc: challengeInfo.desc } : {}),
+        ...(challengeInfo?.desc
+          ? {
+              challengeDesc: challengeInfo.desc,
+              challenge: job.challenge,
+              ...(job.ally ? { ally: job.ally } : {}),
+            }
+          : {}),
       };
     });
 
@@ -1337,6 +1354,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
               .trim() || "Unknown";
           return {
             type,
+            jobType: j.jobType,
             enemyLevels: [j.minEnemyLevel || 0, j.maxEnemyLevel || 0],
             standingStages: j.xpAmounts || [],
             minMR: j.masteryReq || 0,

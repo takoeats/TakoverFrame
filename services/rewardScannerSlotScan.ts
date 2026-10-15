@@ -16,6 +16,10 @@ import { hasConfidentSlotLayout } from "./rewardScannerSupport";
 import { dumpRewardScanDebug, type ScanDebugSlot } from "./rewardScanDebug";
 import { withScope } from "./logger";
 import { yieldToEventLoop } from "./rewardScannerUtils";
+import { isKoreanRewardScan, keepsKoreanOcrToken } from "./takover/koLocale";
+import { rankKoreanRewardCandidates, normalizeQuantityPrefix } from "./takover/koRewardScan";
+import { logKoreanRewardScan, READ_SEPARATOR } from "./takover/koScanLog";
+import { readKoreanStripInColor } from "./takover/koStripReads";
 
 const log = withScope("rewardScanner");
 
@@ -259,11 +263,12 @@ async function ocrRewardRegion(
 
 /** Drop 1-char OCR noise tokens but keep "&" (for "Cobra & Crane Prime ..."). */
 function cleanRewardOcrText(text: string): string {
-  return String(text || "")
+  const cleaned = String(text || "")
     .split(/\s+/)
-    .filter((w) => w === "&" || w.replace(/[^a-z0-9]/gi, "").length > 1)
+    .filter((w) => w === "&" || w.replace(/[^a-z0-9]/gi, "").length > 1 || keepsKoreanOcrToken(w))
     .join(" ")
     .trim();
+  return isKoreanRewardScan() ? normalizeQuantityPrefix(String(text || ""), cleaned) : cleaned;
 }
 
 function joinRewardLines(top: string, bottom: string): string {
@@ -311,12 +316,14 @@ async function readSlotTitle(
   const cropPng: Buffer = crop.toPNG();
   const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
   const reader = options.reader;
+  // The onnx recognizer only knows Latin script.
+  const korean = isKoreanRewardScan();
   const useWindows = reader !== "onnx";
-  const useOnnx = reader !== "windows" && rewardOcrOnnxAvailable();
+  const useOnnx = reader !== "windows" && !korean && rewardOcrOnnxAvailable();
 
   const ocrStartedAt = Date.now();
   // Names wrap to two lines in 3/4-player layouts, so OCR overlapping bands plus the crop.
-  const [regionTexts, onnxRead] = await Promise.all([
+  const [regionTexts, onnxRead, colorReads] = await Promise.all([
     useWindows
       ? Promise.all([
           ocrRewardRegion(cropPng, 0, 0.58, options, timeout),
@@ -325,10 +332,14 @@ async function readSlotTitle(
         ])
       : Promise.resolve(["", "", ""]),
     useOnnx ? recognizeRewardStripOnnx(cropPng) : Promise.resolve(null),
+    // Art behind a two-line Korean name defeats the binarized bands.
+    useWindows && korean
+      ? readKoreanStripInColor(cropPng, options.runOCRStructuredBuffer, timeout)
+      : Promise.resolve([]),
   ]);
   if (options.stats) {
     options.stats.ocrMs += Date.now() - ocrStartedAt;
-    options.stats.ocrReads += (useWindows ? 3 : 0) + (useOnnx ? 1 : 0);
+    options.stats.ocrReads += (useWindows ? (korean ? 5 : 3) : 0) + (useOnnx ? 1 : 0);
   }
 
   const joined = joinRewardLines(regionTexts[0], regionTexts[1]);
@@ -339,6 +350,10 @@ async function readSlotTitle(
   if (joined) candidateTexts.add(joined);
   if (wholeClean) candidateTexts.add(wholeClean);
   if (onnxClean) candidateTexts.add(onnxClean);
+  for (const text of colorReads) {
+    const clean = cleanRewardOcrText(text);
+    if (clean) candidateTexts.add(clean);
+  }
   const diverged =
     !!onnxClean && !!(joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean;
   if (diverged) {
@@ -350,7 +365,10 @@ async function readSlotTitle(
   const rankedCandidates: SlotCandidate[] = [];
   let bestRejected: SlotCandidate | null = null;
   for (const candidateText of candidateTexts) {
-    for (const candidate of rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)) {
+    const ranked = korean
+      ? rankKoreanRewardCandidates(candidateText, options.sortedItems, 4)
+      : rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4);
+    for (const candidate of ranked) {
       if (!candidate.item) continue;
       const slotCandidate: SlotCandidate = {
         item: candidate.item,
@@ -384,7 +402,7 @@ async function readSlotTitle(
     candidates: rankedCandidates,
     nearMiss: bestRejected,
     stripPng: cropPng,
-    windowsText: wholeClean || joined,
+    windowsText: korean ? [...candidateTexts].join(READ_SEPARATOR) : wholeClean || joined,
     onnxText: onnxClean,
     diverged,
   };
@@ -599,6 +617,18 @@ export async function scanRewardSlotsFallback(
       reader: options.reader || "both",
       layoutCount: layouts[0]?.count ?? 0,
     });
+  }
+  // Keep every Korean scan, matched or not, for the matcher tests.
+  if (isKoreanRewardScan()) {
+    logKoreanRewardScan(
+      bestResult ? "matched" : "no-match",
+      bestResult ? bestDebugSlots : fallbackDebugSlots,
+      {
+        layoutCount: bestResult?.slotCount ?? layouts[0]?.count ?? 0,
+        items: bestResult ? bestResult.items.map((item) => item.name) : [],
+      },
+      options.sortedItems,
+    );
   }
 
   return bestResult;

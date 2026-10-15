@@ -10,6 +10,7 @@
     "match-failed": "overlay.trade.noListingMatched",
     "close-failed": "overlay.trade.closingFailed",
     detected: "overlay.trade.tradeFinished",
+    "price-low": "overlay.trade.priceLow",
   };
 
   const REP_RESULT_LABELS = {
@@ -73,7 +74,7 @@
     }
 
     const status = STATUS_KEYS[payload.status] ? payload.status : "detected";
-    tradeLabel.textContent = t(STATUS_KEYS[status]);
+    tradeLabel.textContent = t(STATUS_KEYS[status], { listed: match.listedPlatinum });
     tradeLabel.className = status === "closed" ? "closed" : "unmatched";
 
     const isSale = match.type === "sale";

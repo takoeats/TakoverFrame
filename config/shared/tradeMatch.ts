@@ -11,6 +11,8 @@ export interface TradeMatchPayload {
   platinum: number;
   partner: string;
   type: TradeType;
+  /** "price-low" only: what the matched listings ask in total. */
+  listedPlatinum?: number;
 }
 
 /** Listing closed, nothing matched, close rejected, lookup threw, or never checked. */
@@ -19,7 +21,9 @@ export type TradeNotificationStatus =
   | "no-match"
   | "match-failed"
   | "close-failed"
-  | "detected";
+  | "detected"
+  // The dialog offers less than the listings ask, before accepting.
+  | "price-low";
 
 /** Toast content for however many listings one trade closed. */
 export function summarizeMatches(

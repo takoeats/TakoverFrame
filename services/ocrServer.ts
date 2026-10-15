@@ -5,6 +5,11 @@ import path from "node:path";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { withScope } from "./logger";
 import { resolveRuntimeResourcePath } from "./runtimeResources";
+import {
+  koreanOcrMissingReason,
+  nativeRewardOcrLanguages,
+  powerShellRewardOcrLanguage,
+} from "./takover/koOcr";
 
 const log = withScope("ocrServer");
 
@@ -54,6 +59,7 @@ interface OcrHelperRequest {
   id: string;
   imagePath?: string;
   imageBase64?: string;
+  lang?: string;
 }
 
 interface OcrHelperResponse {
@@ -98,6 +104,8 @@ function latchedEngineError(): Error | null {
 
 /** False only after the helper explicitly reported an unusable WinRT OCR engine. */
 export function getWindowsOcrHealth(): { available: boolean; reason: string | null } {
+  const koreanMissing = koreanOcrMissingReason();
+  if (koreanMissing) return { available: false, reason: koreanMissing };
   if (_engineUnavailableReason && _nativeOcrOkAt <= _engineUnavailableAt) {
     return { available: false, reason: _engineUnavailableReason };
   }
@@ -318,11 +326,13 @@ class OcrServerWorker {
     request: { imagePath?: string; imageBase64?: string },
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
+    const lang = powerShellRewardOcrLanguage();
     return new Promise<StructuredOcrResult>((resolve, reject) => {
       const payload: OcrHelperRequest = {
         id: `ocr-${++this._requestSeq}`,
         ...(request.imagePath ? { imagePath: request.imagePath } : {}),
         ...(request.imageBase64 ? { imageBase64: request.imageBase64 } : {}),
+        ...(lang ? { lang } : {}),
       };
 
       const req: QueuedRequest = {
@@ -504,7 +514,7 @@ async function runNativeOcr(
     throw new TypeError(`${label}: native OCR takes a path, not a buffer`);
   }
   const controller = new AbortController();
-  const started = recognize(input, null, null, controller.signal);
+  const started = recognize(input, null, nativeRewardOcrLanguages(recognize), controller.signal);
   _nativeOcrInFlight.add(started);
   const settled = started.finally(() => _nativeOcrInFlight.delete(started));
 

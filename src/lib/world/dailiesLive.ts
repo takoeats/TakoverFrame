@@ -8,6 +8,7 @@ import { activeWindow, WEEK_MS } from "../format.js";
 import type { MessageKey, Translator } from "../i18n.js";
 import type { ArchonHunt, CalendarDay, Sortie, WorldState } from "../../types/world.js";
 import { circuitChoices } from "../world.js";
+import { worldLabel } from "./worldLabels.js";
 import { fourDayResetIso, type TrackerExpiries } from "./dailies.js";
 
 interface TrackerLive {
@@ -151,15 +152,16 @@ export function trackerLive(
   }
 
   if (!wd) return {};
+  const label = (english: string | null | undefined): string => worldLabel(wd.labels, english);
 
   switch (id) {
     case "sortie": {
       const sortie: Sortie | null | undefined = wd.sortie;
       const missions = (sortie?.missions ?? []).map(
-        (mission) => `${mission.mission} - ${mission.node} - ${mission.modifier}`,
+        (mission) => `${label(mission.mission)} - ${label(mission.node)} - ${mission.modifier}`,
       );
       return {
-        detail: sortie?.boss ? t("dailies.boss", { name: sortie.boss }) : undefined,
+        detail: sortie?.boss ? t("dailies.boss", { name: label(sortie.boss) }) : undefined,
         lines: missions,
         expiry: sortie?.expiry ?? null,
       };
@@ -176,21 +178,21 @@ export function trackerLive(
         : "";
       return {
         detail:
-          [hunt.boss ? t("dailies.boss", { name: hunt.boss }) : "", shard]
+          [hunt.boss ? t("dailies.boss", { name: label(hunt.boss) }) : "", shard]
             .filter(Boolean)
             .join(" - ") || undefined,
-        lines: hunt.missions.map((mission) => `${mission.mission} - ${mission.node}`),
+        lines: hunt.missions.map((mission) => `${label(mission.mission)} - ${label(mission.node)}`),
         expiry: hunt.expiry ?? null,
       };
     }
 
     case "circuitNormal": {
-      const choices = circuitChoices(wd, "normal");
+      const choices = circuitChoices(wd, "normal").map(label);
       return choices.length > 0 ? { detail: choices.join(" - ") } : {};
     }
 
     case "circuitSteelPath": {
-      const choices = circuitChoices(wd, "hard");
+      const choices = circuitChoices(wd, "hard").map(label);
       return choices.length > 0 ? { detail: choices.join(" - ") } : {};
     }
 
@@ -198,7 +200,7 @@ export function trackerLive(
       const reward = wd.steelPath?.currentReward;
       if (!reward) return {};
       return {
-        detail: `${reward.name} - ${t("world.steelEssenceCost", { cost: String(reward.cost) })}`,
+        detail: `${label(reward.name)} - ${t("world.steelEssenceCost", { cost: String(reward.cost) })}`,
         expiry: wd.steelPath?.expiry ?? null,
       };
     }
@@ -207,7 +209,7 @@ export function trackerLive(
       const baro = wd.voidTrader;
       if (!baro) return {};
       const here = activeWindow(baro.activation, baro.expiry, nowMs);
-      const location = baro.location ?? "";
+      const location = label(baro.location);
       const where = location
         ? t(here ? "dailies.baroHere" : "dailies.baroAway", { location })
         : undefined;
@@ -240,7 +242,7 @@ export function trackerLive(
       if (!season) return {};
       // The season tag is a game term (Winter/Spring/...), shown as the game spells it.
       return {
-        detail: season.season || undefined,
+        detail: label(season.season) || undefined,
         calendar: season.days?.length ? upcomingCalendarDays(season.days, nowMs) : undefined,
         expiry: season.expiry ?? null,
       };
@@ -258,7 +260,7 @@ export function trackerLive(
           ? t("world.soldOfTotal", { sold: String(deal.sold), total: String(deal.total) })
           : "";
       return {
-        detail: [deal.item, price, stock].filter(Boolean).join(" - "),
+        detail: [label(deal.item), price, stock].filter(Boolean).join(" - "),
         expiry: deal.expiry ?? null,
       };
     }

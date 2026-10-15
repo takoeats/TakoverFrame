@@ -3,6 +3,8 @@
   import { getLookupByName } from "../../lib/inventoryMarket.js";
   import { locale, tr } from "../../lib/i18n.js";
   import BaroLastSeen from "./BaroLastSeen.svelte";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
+  import { worldLabels } from "../../stores/world.js";
 
   // Baro inventory entry - typed loosely to match the world-state shape.
   type BaroEntry = {
@@ -29,7 +31,8 @@
     dbEntry?.imageUrl ||
     (typeof entry.imageOverride === "string" ? entry.imageOverride : null);
 
-  $: title = `${entry.item || $tr("common.unknown")}${
+  $: name = dbEntry?.displayName || worldLabel($worldLabels, entry.item);
+  $: title = `${name || $tr("common.unknown")}${
     entry.ducats ? ` · ${$tr("world.baro.ducatsShort", { count: entry.ducats })}` : ""
   }${
     entry.credits
@@ -62,15 +65,10 @@
 >
   <div class="relative flex items-center justify-center overflow-hidden {shapeCls} {borderCls}">
     {#if imgUrl}
-      <img
-        class="h-full w-full object-contain"
-        src={imgUrl}
-        alt={entry.item || ""}
-        loading="lazy"
-      />
+      <img class="h-full w-full object-contain" src={imgUrl} alt={name} loading="lazy" />
     {:else}
       <span class="text-3xl font-bold text-text-secondary opacity-40">
-        {(entry.item || "?")[0]}
+        {(name || "?")[0]}
       </span>
     {/if}
 
@@ -92,7 +90,7 @@
 
   <span
     class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-xs
-           text-text-secondary {labelMaxW}">{entry.item || $tr("common.unknown")}</span
+           text-text-secondary {labelMaxW}">{name || $tr("common.unknown")}</span
   >
   {#if entry.uniqueName}<span class="text-center {labelMaxW}"
       ><BaroLastSeen uniqueName={entry.uniqueName} available={true} /></span

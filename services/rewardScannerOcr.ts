@@ -8,6 +8,7 @@ import {
 } from "./ocrServer";
 import type { StructuredOcrResult } from "./ocrServer";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { powerShellRewardOcrLanguage } from "./takover/koOcr";
 
 interface OcrRunnerOptions {
   log?: { warn?: (...args: unknown[]) => void };
@@ -51,10 +52,14 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
 
   /** One-shot PowerShell OCR - used as fallback when the persistent server is unavailable. */
   function runPowerShellOcrOneShot(imagePath: string, timeoutMs: number): Promise<string> {
+    const lang = powerShellRewardOcrLanguage();
     return new Promise((resolve, reject) => {
       execFile(
         "powershell",
-        ["-ExecutionPolicy", "Bypass", "-NonInteractive", "-File", ocrScriptPath, imagePath],
+        [
+          ...["-ExecutionPolicy", "Bypass", "-NonInteractive", "-File", ocrScriptPath, imagePath],
+          ...(lang ? ["-Lang", lang] : []),
+        ],
         { timeout: timeoutMs, encoding: "utf8" },
         (err, stdout, stderr) => {
           if (err) {

@@ -6,6 +6,7 @@ import { app } from "electron";
 import { backendClientHeader, BACKEND_URL } from "../config/shared/backendConfig";
 import { FEEDBACK_LIMITS, normalizeFeedback, type FeedbackResult } from "../config/shared/feedback";
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
+import { BACKEND_FEEDBACK_ENABLED } from "../config/shared/forkConfig";
 import { FEEDBACK_CONTEXT, FEEDBACK_SUBMIT } from "../config/shared/ipcChannels";
 import { getLogFilePath } from "../services/logger";
 import { redactLogPaths } from "../services/logPrivacy";
@@ -49,6 +50,7 @@ export function register(): void {
     FEEDBACK_SUBMIT,
     assertMainRendererSender,
     async (_event, raw: unknown): Promise<FeedbackResult> => {
+      if (!BACKEND_FEEDBACK_ENABLED) return { ok: false, error: "unavailable" };
       const report = normalizeFeedback(raw);
       if (!report) return { ok: false, error: "invalid" };
       if (sending || Date.now() < nextSubmission) return { ok: false, error: "rate_limited" };

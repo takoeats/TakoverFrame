@@ -15,7 +15,8 @@
   import { relicDb } from "../../stores/relics.js";
   import { relicGroupForUniqueName } from "../../lib/relic.js";
   import { buildParsedItemFromDb } from "../../lib/parsedItemFromDb.js";
-  import { worldData } from "../../stores/world.js";
+  import { worldData, worldLabels } from "../../stores/world.js";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
   import type { CalendarDay, NightwaveChallenge, WorldAlert } from "../../types/world.js";
   import {
     circuitChoiceKey,
@@ -268,7 +269,10 @@
   function alertRows(t: Translator): Row[] {
     return (wd?.alerts ?? []).map((alert: WorldAlert) => {
       const rewards = [
-        ...alert.items.map((item) => (item.count > 1 ? `${item.count}x ${item.name}` : item.name)),
+        ...alert.items.map((item) => {
+          const name = worldLabel($worldLabels, item.name);
+          return item.count > 1 ? `${item.count}x ${name}` : name;
+        }),
         alert.credits > 0
           ? t("world.creditsAmount", { amount: alert.credits.toLocaleString() })
           : "",
@@ -276,7 +280,7 @@
       return {
         ...taskRow({
           id: `alert:${alert.id}`,
-          label: `${alert.mission} - ${alert.node}`,
+          label: `${worldLabel($worldLabels, alert.mission)} - ${worldLabel($worldLabels, alert.node)}`,
           group: "alerts",
           periodKey: expiryPeriodKey("alert", alert.expiry),
         }),

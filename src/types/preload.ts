@@ -49,6 +49,9 @@ export interface PreloadAPI {
   getRelicDatabase: () => Promise<IpcInvokeMap["getRelicDatabase"]["return"]>;
   getRelicDataInfo: () => Promise<IpcInvokeMap["getRelicDataInfo"]["return"]>;
   getWfmItems: () => Promise<IpcInvokeMap["getWfmItems"]["return"]>;
+  getSyndicateNames: () => Promise<IpcInvokeMap["getSyndicateNames"]["return"]>;
+  getRivenStatNames: () => Promise<IpcInvokeMap["getRivenStatNames"]["return"]>;
+  getRivenWeaponLabels: () => Promise<IpcInvokeMap["getRivenWeaponLabels"]["return"]>;
   wfmSignIn: (
     creds: IpcInvokeMap["wfmSignIn"]["args"][0],
   ) => Promise<IpcInvokeMap["wfmSignIn"]["return"]>;

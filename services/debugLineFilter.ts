@@ -1,5 +1,7 @@
 // Prefilter real-time sources before IPC; eeLogMonitor remains authoritative.
 
+import { KO_DEBUG_LINE_SUBSTRINGS } from "../config/shared/takover/koLogLines";
+
 // Lowercase to allow a single case-insensitive check without regex cost.
 const FILTER_SUBSTRINGS_LOWER = [
   "loadingcompleteend", // relic selection screen ready (primary trigger)
@@ -24,6 +26,7 @@ const FILTER_SUBSTRINGS_LOWER = [
   "topmenu.lua: abort:", // mission abort
   "syncautopopulatedconsumables for mission", // mission type and node
   "onstatestarted, mission type=", // mission type
+  ...KO_DEBUG_LINE_SUBSTRINGS, // Korean client trade lines
 ] as const;
 
 // Match eeLogMonitor's picker cooldown because the game repeats these lines.

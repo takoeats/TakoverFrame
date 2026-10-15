@@ -10,12 +10,14 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { getWarframeProcessState } from "./warframeStatus";
+import { APP_PRODUCT_NAME } from "../config/shared/appMeta";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("WarframeLifecycle");
-const LOGIN_ITEM_NAME = "WFHelperWarframeWatcher";
-const LEGACY_TASK_NAME = "WFHelperWarframeWatcher";
-const TASK_FOLDER = "WFHelper";
+// Derived from the product so a fork installed next to WFHelper never touches its tasks.
+const LOGIN_ITEM_NAME = `${APP_PRODUCT_NAME}WarframeWatcher`;
+const LEGACY_TASK_NAME = `${APP_PRODUCT_NAME}WarframeWatcher`;
+const TASK_FOLDER = APP_PRODUCT_NAME;
 const EXIT_GRACE_MS = 10_000;
 
 function systemRoot(): string {

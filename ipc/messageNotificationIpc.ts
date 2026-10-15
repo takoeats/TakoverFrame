@@ -4,6 +4,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import * as warframeStatus from "../services/warframeStatus";
 import { withScope } from "../services/logger";
 import { dispatch } from "../services/notificationChannels";
+import { whisperNotificationText } from "../services/takover/koNotifications";
 
 const log = withScope("messageNotification");
 
@@ -19,8 +20,7 @@ export async function notifyInGameMessage(playerName: string): Promise<void> {
       }
     }
 
-    const title = "New in-game conversation";
-    const body = `from ${playerName}`;
+    const { title, body } = whisperNotificationText(playerName);
     dispatch({ source: "whisper", title, body }, () => {
       if (ctx.overlaySettings.messageNotificationsEnabled === false) return;
       sendDesktopNotificationRaw(title, body, "message");

@@ -1,4 +1,5 @@
 import type { MessageKey } from "./i18n.js";
+import type { ItemDbEntry } from "../types/inventory.js";
 
 // services/rivenFingerprint.ts hands back raw English labels; map them here so
 // every view that shows a riven type resolves the same translation.
@@ -29,3 +30,23 @@ export const RIVEN_ATTR_GRADE_ORDER: Record<string, number> = {
   OK: 2,
   Bad: 1,
 };
+
+// Stat and weapon names stay English for grading, similarity and warframe.market;
+// these two only pick the text a view shows.
+
+/** A stat or weapon label from a table keyed by the lowercased English label;
+ *  any miss stays English. */
+export function rivenNameLabel(
+  name: string | null | undefined,
+  names: Readonly<Record<string, string>>,
+): string {
+  if (!name) return "";
+  return names[name.toLowerCase()] || name;
+}
+
+export function rivenWeaponLabel(
+  riven: { weaponName: string; weaponUniqueName?: string | null },
+  db: Readonly<Record<string, ItemDbEntry>>,
+): string {
+  return (riven.weaponUniqueName && db[riven.weaponUniqueName]?.displayName) || riven.weaponName;
+}

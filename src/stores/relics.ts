@@ -2,6 +2,7 @@ import { derived, writable } from "svelte/store";
 import { readStorage, writeStorage } from "../lib/persistence.js";
 import { parseOwnedRelics } from "../lib/relic/relicInventory.js";
 import { inventoryData } from "./data.js";
+import { rememberRelicSquadSize, restoreRelicSquadSize } from "../lib/takover/relicSquad.js";
 import {
   DEFAULT_RELIC_PLANNER_FILTERS,
   type RelicPlannerFilters,
@@ -31,6 +32,7 @@ interface RelicViewState extends RelicPlannerFilters {
 
 const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
   ...DEFAULT_RELIC_PLANNER_FILTERS,
+  squadSize: restoreRelicSquadSize() ?? DEFAULT_RELIC_PLANNER_FILTERS.squadSize,
   tierFilter: restoreRelicTab(),
   ownershipMode: "owned",
 };
@@ -47,5 +49,6 @@ export function setRelicFilter(patch: Partial<RelicViewState>): void {
   if (patch.tierFilter && RELIC_TABS.has(patch.tierFilter)) {
     writeStorage(RELIC_TAB_KEY, patch.tierFilter);
   }
+  if (patch.squadSize !== undefined) rememberRelicSquadSize(patch.squadSize);
   relicViewState.update((state) => ({ ...state, ...patch }));
 }

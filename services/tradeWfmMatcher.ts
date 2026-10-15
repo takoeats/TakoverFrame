@@ -22,7 +22,10 @@ interface ParsedTradeForMatching {
 type WfmTradeMatch = TradeMatchPayload;
 
 const _recentlyClosedOrders = new Map<string, number>();
-const CLOSE_DEDUP_MS = 30_000;
+// 30s skipped a second sale from a multi-quantity listing made within
+// it. Duplicate log deliveries already stop at tradeTracker's signature check and
+// arrive within a poll; no real trade completes within this window.
+const CLOSE_DEDUP_MS = 5_000;
 const CONTRACT_PAGE_LIMIT = 100;
 
 function normalizeName(name: string): string {
@@ -68,9 +71,17 @@ function cleanupRecentlyClosed(): void {
 }
 
 export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise<WfmTradeMatch[]> {
+  return (await matchTradeToOrdersWithCoverage(trade)).matches;
+}
+
+/** The matches, and whether they cover every traded item (for the price check). */
+export async function matchTradeToOrdersWithCoverage(
+  trade: ParsedTradeForMatching,
+): Promise<{ matches: WfmTradeMatch[]; complete: boolean }> {
+  const partial = (matches: WfmTradeMatch[]) => ({ matches, complete: false });
   if (!wfmSession.getToken()) {
     log.info("[Matcher] Skipping - not logged in to WFM");
-    return [];
+    return partial([]);
   }
 
   const relevantItems = trade.items.filter((i) =>
@@ -79,7 +90,7 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
 
   if (relevantItems.length === 0) {
     log.info("[Matcher] No relevant items to match");
-    return [];
+    return partial([]);
   }
 
   cleanupRecentlyClosed();
@@ -104,13 +115,13 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
     orders = await wfmOrders.getMyOrders();
   } catch (err) {
     log.warn("[Matcher] Failed to fetch orders:", String(err));
-    return matches;
+    return partial(matches);
   }
 
   const candidateOrders = trade.type === "sale" ? orders.sell : orders.buy;
   if (candidateOrders.length === 0) {
     log.info(`[Matcher] No ${trade.type === "sale" ? "sell" : "buy"} orders to match against`);
-    return matches;
+    return partial(matches);
   }
 
   const tradedCounts = new Map<string, number>();
@@ -195,7 +206,7 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
         `(${candidateOrders.length} ${trade.type === "sale" ? "sell" : "buy"} order(s) checked)`,
     );
   }
-  return matches;
+  return { matches, complete: preparedItems.every((item) => item.remaining < 1) };
 }
 
 async function matchRivenContracts(

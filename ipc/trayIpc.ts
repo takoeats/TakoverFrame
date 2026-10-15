@@ -4,6 +4,7 @@ import { app, Menu, nativeImage, Tray } from "electron";
 
 import { mainMessage } from "./overlayI18n";
 import { markQuitting } from "../services/appLifecycle";
+import { APP_PRODUCT_NAME } from "../config/shared/appMeta";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "../services/logger";
 
@@ -66,7 +67,7 @@ export function createTray(): boolean {
       }
       return false;
     }
-    tray.setToolTip("WFHelper");
+    tray.setToolTip(APP_PRODUCT_NAME);
     // Linux tray backends deliver no click event, so there the menu is the only way in.
     if (process.platform === "win32") tray.on("click", () => showMainWindow?.());
     log.info("[Tray] created");

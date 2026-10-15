@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { writeFileAtomicSync } from "./atomicFile";
+import { buildArbiLabels } from "./worldLabels";
 import {
   factionLabel,
   loadRegionTranslation,
@@ -271,10 +272,13 @@ function getAlerts(): ArbiScheduleAlerts {
 export async function getSchedulePayload(): Promise<ArbiSchedulePayload> {
   const stale = _fetchedAt === null || Date.now() - _fetchedAt > STALE_AFTER_MS;
   if (stale) await _fetchSchedule();
+  const entries = filterScheduleWindow(_entries, Date.now());
+  const labels = buildArbiLabels(entries);
   return {
-    entries: filterScheduleWindow(_entries, Date.now()),
+    entries,
     fetchedAt: _fetchedAt,
     alerts: getAlerts(),
+    ...(labels ? { labels } : {}),
   };
 }
 

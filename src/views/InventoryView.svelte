@@ -71,6 +71,7 @@
     classifyForFoundry,
   } from "../lib/inventory/foundryResources.js";
   import { applySharedFiltersAndSort, compareNames, matchesSearch } from "../lib/filters.js";
+  import { itemLabel } from "../lib/itemLabel.js";
   import { buildDetailKeys } from "../lib/inventory/detailKeys.js";
   import { setRootOf } from "../lib/inventory/fullSets.js";
   import {
@@ -674,7 +675,9 @@
         : searched;
     const dir = filters.sortDirection === "asc" ? 1 : -1;
     return [...gated].sort((a, b) =>
-      filters.sortBy === "amount" ? (a.count - b.count) * dir : compareNames(a.name, b.name) * dir,
+      filters.sortBy === "amount"
+        ? (a.count - b.count) * dir
+        : compareNames(itemLabel(a), itemLabel(b)) * dir,
     );
   }
 

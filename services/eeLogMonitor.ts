@@ -38,6 +38,14 @@ import type { PtRunRecord } from "../config/shared/profitTakerTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
+import {
+  announceTradeDialog,
+  englishTradeDialog,
+  englishTradeItemLine,
+  findTradeDialogStart,
+  isTradeSuccessLine,
+  settleTradeDialog,
+} from "./takover/koTrade";
 
 const log = withScope("eeLogMonitor");
 const LOGIN_COMPLETE_PATTERN = /\bMainMenu::LoginDone result=true\b/;
@@ -474,13 +482,12 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // A single-line dialog already carries its arg tail, so it seals at once. Only
   // the tail after the start marker counts: a previous dialog's tail shares the
   // line when the engine flushed this entry behind it.
-  if (line.includes(TRADE_DIALOG_START)) {
+  const tradeDialogStart = findTradeDialogStart(line, TRADE_DIALOG_START);
+  if (tradeDialogStart >= 0) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
     _tradeDialogGlueMark = null;
-    _tradeDialogSealed = TRADE_DIALOG_TAIL_PATTERN.test(
-      line.slice(line.indexOf(TRADE_DIALOG_START)),
-    );
+    _tradeDialogSealed = TRADE_DIALOG_TAIL_PATTERN.test(line.slice(tradeDialogStart));
   } else if (_tradeDialogBuffer !== null) {
     if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
       _tradeDialogBuffer = null;
@@ -489,12 +496,22 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  if (line.includes(TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
+  // The whole dialog is in once it seals, before the player accepts.
+  if (_tradeDialogBuffer !== null && _tradeDialogSealed) {
+    const mark = _tradeDialogGlueMark;
+    const buffer = _tradeDialogBuffer;
+    announceTradeDialog(buffer, () =>
+      _parseTradeDialog(mark === null ? buffer : buffer.slice(0, mark)),
+    );
+  }
+
+  if (isTradeSuccessLine(line, TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
     const dialogLines =
       _tradeDialogGlueMark === null
         ? _tradeDialogBuffer
         : _tradeDialogBuffer.slice(0, _tradeDialogGlueMark);
     const parsed = _parseTradeDialog(dialogLines);
+    settleTradeDialog();
     _tradeDialogBuffer = null;
     _tradeDialogSealed = false;
     _tradeDialogGlueMark = null;
@@ -544,7 +561,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
 }
 
 export function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
-  const text = lines.join("\n");
+  const text = englishTradeDialog(lines.join("\n"));
 
   // Extract the description between the trigger text and the leftItem suffix
   const descStart = text.indexOf("You are offering:");
@@ -577,7 +594,7 @@ export function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
       // Skip EE.log framework lines that may have leaked into the buffer
       if (isLogFrameworkLine(withoutTail)) continue;
       // Platform glyphs embedded in names (glyph-only lines become empty).
-      const cleaned = stripPlatformGlyphs(withoutTail);
+      const cleaned = stripPlatformGlyphs(englishTradeItemLine(withoutTail));
       if (!cleaned) continue;
 
       const platMatch = cleaned.match(/^Platinum(?:\s+x\s+(\d+))?$/i);

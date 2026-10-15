@@ -21,6 +21,9 @@ export interface DropRow {
   chance: number | null;
   kind: DropKind;
   sourceUrl?: string;
+  /** `item` and `place` in the game language, present only when the text moved. */
+  itemLabel?: string;
+  placeLabel?: string;
 }
 
 export type DropSearchMode = "item" | "place" | "enemy";

@@ -45,7 +45,14 @@ vi.mock("../../../src/lib/ipc.js", () => ({
 
 vi.mock("../../../src/stores/data.js", async () => {
   const { writable } = await import("svelte/store");
-  return { itemDb: writable({}), wfmItems: writable({}), parsedItems: writable([]) };
+  return {
+    itemDb: writable({}),
+    wfmItems: writable({}),
+    parsedItems: writable([]),
+    syndicateNames: writable({}),
+    rivenStatNames: writable({}),
+    rivenWeaponLabels: writable({}),
+  };
 });
 
 vi.mock("../../../src/lib/actions.js", () => ({ onInventoryLoaded: vi.fn() }));

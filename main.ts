@@ -117,6 +117,7 @@ import * as marketAlertsIpc from "./ipc/marketAlertsIpc";
 import * as missionRewardsIpc from "./ipc/missionRewardsIpc";
 import * as inventorySelectionIpc from "./ipc/inventorySelectionIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
+import { registerTradePriceCheck } from "./services/takover/tradePriceCheck";
 import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
 import * as tradeLedgerIpc from "./ipc/tradeLedgerIpc";
 import * as popoutIpc from "./ipc/popoutIpc";
@@ -541,6 +542,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   notificationChannelsIpc.register();
   marketAlertsIpc.register();
   tradeWorkbenchIpc.register();
+  registerTradePriceCheck();
   tradeLedgerIpc.register();
   popoutIpc.register();
   inventorySelectionIpc.register();

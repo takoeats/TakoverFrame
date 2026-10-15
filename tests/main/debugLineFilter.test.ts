@@ -47,6 +47,17 @@ describe("DebugLineGate", () => {
     );
   });
 
+  it("forwards the Korean client's trade success line", () => {
+    // Without it the sale only lands on the lazy file flush, 15 s late.
+    const gate = new DebugLineGate();
+    expect(
+      gate.wants(
+        "12894.903 Script [Info]: Dialog.lua: Dialog::CreateOk(description=거래가 성사되었습니다!, title= leftItem=/Menu/Confirm_Item_Ok)",
+        0,
+      ),
+    ).toBe(true);
+  });
+
   it("forwards completed login lines", () => {
     const gate = new DebugLineGate();
     expect(gate.wants(LOGIN_LINE, 0)).toBe(true);

@@ -3,6 +3,7 @@ dist/
 out/
 release/
 release-test/
+release-public/
 .venv/
 venv/
 env/

@@ -6,6 +6,7 @@
   import { locale, tr } from "../../lib/i18n.js";
   import { log } from "../../lib/log.js";
   import { clockStore } from "../../lib/timers.js";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
   import type { ArbiScheduleAlerts, ArbiScheduleEntry } from "../../types/ipc.js";
   import {
     buildNodeCatalog,
@@ -33,6 +34,7 @@
   const MAX_COPY_ROWS = 80;
 
   let entries: ArbiScheduleEntry[] = [];
+  let labels: Record<string, string> = {};
   let alerts: ArbiScheduleAlerts = { occurrences: [], favoriteNodes: [], minutesBefore: 5 };
   let fetchedAt: number | null = null;
   let loaded = false;
@@ -121,7 +123,15 @@
   async function refresh(): Promise<void> {
     try {
       const payload = await invoke("getArbiSchedule");
-      entries = payload.entries;
+      labels = payload.labels ?? {};
+      // Node and mission are display text only (rows key on nodeId), so they move
+      // to the game language here and search, sort and copy follow. The faction
+      // stays English: the badge colour is picked from it.
+      entries = payload.entries.map((entry) => ({
+        ...entry,
+        node: worldLabel(labels, entry.node),
+        mission: worldLabel(labels, entry.mission),
+      }));
       copySelection = new Set(
         selectedScheduleEntries(entries, copySelection).map(scheduleEntryKey),
       );
@@ -284,7 +294,7 @@
         row.appendChild(
           cardEl(
             `wfh-arbicard-faction wfh-arbicard-f-${factionBadgeKey(entry.faction)}`,
-            entry.faction,
+            worldLabel(labels, entry.faction),
           ),
         );
         card.appendChild(row);
@@ -414,7 +424,7 @@
             </span>
             <span
               class="arbisched-dot arbisched-dot-{factionBadgeKey(node.faction)}"
-              title={node.faction}
+              title={worldLabel(labels, node.faction)}
             ></span>
             <button
               class="shrink-0 cursor-pointer border-0 bg-transparent p-0.5 {starred
@@ -623,7 +633,7 @@
                   >
                   <span>
                     <span class="arbisched-badge arbisched-badge-{factionBadgeKey(entry.faction)}"
-                      >{entry.faction}</span
+                      >{worldLabel(labels, entry.faction)}</span
                     >
                   </span>
                   <span

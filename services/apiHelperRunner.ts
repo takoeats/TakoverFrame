@@ -7,6 +7,7 @@ import zlib from "node:zlib";
 import { app } from "electron";
 
 import type { HelperRunReason, HelperStatus } from "../config/shared/apiHelperTypes";
+import { APP_PRODUCT_NAME } from "../config/shared/appMeta";
 import type { DownloadStage } from "../config/shared/statsTypes";
 import { readGameAuthz } from "./gameMemoryAuthz";
 import { readGameAuthzWin } from "./gameMemoryWin";
@@ -740,7 +741,7 @@ function httpsDownloadToFile(
         rejectOnce(err);
         return;
       }
-      const request = https.get(absUrl, { headers: { "User-Agent": "WFHelper" } }, (res) => {
+      const request = https.get(absUrl, { headers: { "User-Agent": APP_PRODUCT_NAME } }, (res) => {
         // Follow redirect - but only to https:// targets. Resolve relative
         // locations against the current URL before re-validating.
         if (
@@ -826,7 +827,7 @@ export async function downloadHelper(
 
     const releaseRes = await httpsGetBuffer(
       GITHUB_RELEASES_URL,
-      { "User-Agent": "WFHelper", Accept: "application/vnd.github+json" },
+      { "User-Agent": APP_PRODUCT_NAME, Accept: "application/vnd.github+json" },
       MAX_RELEASE_METADATA_BYTES,
     );
 

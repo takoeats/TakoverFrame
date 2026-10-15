@@ -8,7 +8,7 @@ import * as wfmSession from "../services/wfmSession";
 import type { ParsedLogTrade } from "../services/eeLogMonitor";
 import { isTradeNotificationOverlayEnabled } from "../config/runtime/overlaySettings";
 import { TRADE_RECORDED } from "../config/shared/ipcChannels";
-import { tradeNotificationBody, tradeNotificationTitle } from "../config/shared/notifications";
+import { tradeNotificationText } from "../services/takover/koNotifications";
 import { summarizeMatches, summarizeTrade } from "../config/shared/tradeMatch";
 import type { TradeMatchPayload, TradeNotificationStatus } from "../config/shared/tradeMatch";
 
@@ -33,11 +33,8 @@ export function handleConfirmedTrade(trade: ParsedLogTrade): void {
         return;
       }
       if (!ctx.overlaySettings.tradeDesktopNotificationsEnabled) return;
-      sendDesktopNotificationRaw(
-        tradeNotificationTitle(status),
-        tradeNotificationBody(payload),
-        "trade",
-      );
+      const { title, body } = tradeNotificationText(status, payload);
+      sendDesktopNotificationRaw(title, body, "trade");
     };
 
     if (!ctx.overlaySettings.autoCloseWfmOrders || !wfmSession.getToken()) {

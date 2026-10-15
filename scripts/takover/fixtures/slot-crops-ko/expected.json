@@ -1,0 +1,58 @@
+{
+  "source": "2560x1440 Korean client, interface scale 100%, 4-player void fissure rewards (2026-10-03). Item-name strips only. Unprefixed: first screenshot (build-ko-screens.cjs uses these). s2_: second screenshot (Lavos two-line name over helmet art). s3_: strips the app logged in game (Protea two-line name under part art).",
+  "frame": {
+    "width": 2559,
+    "height": 1439,
+    "uiScale": 100
+  },
+  "slots": {
+    "4_players_slot0_title_621x549_315x59.png": {
+      "ko": "패리스 프라임 스트링",
+      "expected": "Paris Prime String"
+    },
+    "4_players_slot1_title_949x549_315x59.png": {
+      "ko": "2 X 포르마 설계도",
+      "expected": "2X Forma Blueprint"
+    },
+    "4_players_slot2_title_1277x549_315x59.png": {
+      "ko": "벨록스 프라임 배럴",
+      "expected": "Velox Prime Barrel"
+    },
+    "4_players_slot3_title_1605x549_315x59.png": {
+      "ko": "포르마 설계도",
+      "expected": "Forma Blueprint"
+    },
+    "s2_4_players_slot0_title_621x549_315x59.png": {
+      "ko": "브롱코 프라임 리시버",
+      "expected": "Bronco Prime Receiver"
+    },
+    "s2_4_players_slot1_title_949x549_315x59.png": {
+      "ko": "포르마 설계도",
+      "expected": "Forma Blueprint"
+    },
+    "s2_4_players_slot2_title_1277x549_315x59.png": {
+      "ko": "라보스 프라임 섀시 설계도",
+      "expected": "Lavos Prime Chassis Blueprint"
+    },
+    "s2_4_players_slot3_title_1605x549_315x59.png": {
+      "ko": "아크볼토 프라임 설계도",
+      "expected": "Akbolto Prime Blueprint"
+    },
+    "s3_4_players_slot0_title_627x551_312x58.png": {
+      "ko": "버스튼 프라임 스톡",
+      "expected": "Burston Prime Stock"
+    },
+    "s3_4_players_slot1_title_952x551_312x58.png": {
+      "ko": "2 X 포르마 설계도",
+      "expected": "2X Forma Blueprint"
+    },
+    "s3_4_players_slot2_title_1277x551_312x58.png": {
+      "ko": "렉스 프라임 배럴",
+      "expected": "Lex Prime Barrel"
+    },
+    "s3_4_players_slot3_title_1603x551_312x58.png": {
+      "ko": "프로티아 프라임 섀시 설계도",
+      "expected": "Protea Prime Chassis Blueprint"
+    }
+  }
+}

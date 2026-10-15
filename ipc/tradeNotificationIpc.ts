@@ -20,7 +20,7 @@ import { clampIntoArea, findDisplayById } from "./overlay/windows";
 import { registerZOrderSubscriber, syncUnfocusHide } from "./overlay/zOrder";
 import { isNativeWayland } from "../services/linuxDisplayBackend";
 import { probeLayerShell } from "../services/layerShell";
-import { tradeNotificationBody, tradeNotificationTitle } from "../config/shared/notifications";
+import { localizedTradeMatch, tradeNotificationText } from "../services/takover/koNotifications";
 import { durationMsFromSeconds } from "../config/shared/numeric";
 import { resolveRepOffer } from "../config/shared/tradeMatch";
 import type {
@@ -284,8 +284,7 @@ function _scheduleHide(win: InstanceType<typeof BrowserWindow>, delayMs: number)
 // channel hides the OS toast only: the trade window showed either way, so the
 // history entry is not the channel layer's to withhold.
 function _recordTradeHistory(pending: PendingTradeNotification): void {
-  const title = tradeNotificationTitle(pending.status);
-  const body = tradeNotificationBody(pending.match);
+  const { title, body } = tradeNotificationText(pending.status, pending.match);
   let recorded = false;
   dispatch({ source: "tradeToast", title, body }, () => {
     if (!ctx.overlaySettings.tradeDesktopNotificationsEnabled) return;
@@ -312,7 +311,7 @@ function _displayNotification(
     DEFAULT_VISIBLE_MS,
   );
   const payload: TradeNotificationShowPayload = {
-    match: pending.match,
+    match: localizedTradeMatch(pending.match),
     status: pending.status,
     rep,
     timing: {

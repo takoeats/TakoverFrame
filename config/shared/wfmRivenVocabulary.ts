@@ -2,6 +2,11 @@
 // follow display-name normalization, so they are listed rather than derived.
 // Source: https://api.warframe.market/v1/riven/attributes
 
+/** "fire_rate_/_attack_speed" -> "Fire Rate / Attack Speed", the label listings carry. */
+export function wfmAttributeLabel(urlName: string): string {
+  return urlName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
+
 /** Game upgrade tag to WFM auction attribute url_name. */
 export const TAG_TO_WFM_URL_NAME: Record<string, string> = {
   WeaponCritChanceMod: "critical_chance",

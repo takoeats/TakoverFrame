@@ -91,6 +91,7 @@ async function fetchWorldData(force: boolean = false): Promise<void> {
 // that overlaps an unmount must not leave two intervals running.
 let worldPollRefs = 0;
 let stopWorldPoll: (() => void) | null = null;
+let stopLanguageListener: (() => void) | null = null;
 
 /** Fetches now and keeps world data polling while any caller holds its stop fn. */
 export function mountWorldPolling(): () => void {
@@ -98,6 +99,9 @@ export function mountWorldPolling(): () => void {
   if (worldPollRefs === 1) {
     void fetchWorldData();
     stopWorldPoll = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
+    // Main labels the state in the game language as it serves it, so a language
+    // change only needs a fresh pull.
+    stopLanguageListener = on("item-db-updated", () => void fetchWorldData(true));
   }
 
   let released = false;
@@ -108,6 +112,8 @@ export function mountWorldPolling(): () => void {
     if (worldPollRefs > 0) return;
     stopWorldPoll?.();
     stopWorldPoll = null;
+    stopLanguageListener?.();
+    stopLanguageListener = null;
   };
 }
 

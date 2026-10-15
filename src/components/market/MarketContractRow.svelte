@@ -1,6 +1,8 @@
 <script lang="ts">
   import { PLATINUM_ICON_URL, RIVEN_TEMPLATE_URL } from "../../lib/assetUrls.js";
-  import { attributeKeyword } from "../../lib/marketContract.js";
+  import { attributeKeyword, contractTitleLabel } from "../../lib/marketContract.js";
+  import { rivenNameLabel } from "../../lib/rivenLabels.js";
+  import { rivenStatNames, rivenWeaponLabels } from "../../stores/data.js";
   import { listingWarning, type ListingInventoryMatch } from "../../lib/marketListing.js";
   import { attrGradeColor, gradeColor } from "../../lib/rivenGradeColors.js";
   import { RIVEN_ATTR_GRADE_KEYS } from "../../lib/rivenLabels.js";
@@ -20,13 +22,21 @@
   export let inventoryMatch: ListingInventoryMatch | null = null;
   export let busy = false;
 
-  function contractStatsPreview(contractRow: WfmContract): string[] {
+  function contractStatsPreview(
+    contractRow: WfmContract,
+    statNames: Readonly<Record<string, string>>,
+  ): string[] {
     if (!Array.isArray(contractRow.stats) || contractRow.stats.length === 0) return [];
     return contractRow.stats
       .slice(0, 4)
       .map((attribute) => attributeKeyword(attribute as WfmContractAttribute))
       .filter(Boolean)
-      .map((label) => label.replace(/\b\w/g, (letter) => letter.toUpperCase()));
+      .map((label) =>
+        rivenNameLabel(
+          label.replace(/\b\w/g, (letter) => letter.toUpperCase()),
+          statNames,
+        ),
+      );
   }
 
   function contractBadgeKey(contractRow: WfmContract): MessageKey {
@@ -37,7 +47,8 @@
     return "market.badge.listing";
   }
 
-  $: statsPreview = contractStatsPreview(contract);
+  $: statsPreview = contractStatsPreview(contract, $rivenStatNames);
+  $: title = contractTitleLabel(contract, $rivenWeaponLabels);
   $: badge = $tr(contractBadgeKey(contract));
   $: badgeClass = contract.isDirectSell ? "bg-warning-bg text-warning" : "bg-info-bg text-info";
   $: masteryLabel = contract.masteryLevel != null ? `MR${contract.masteryLevel}` : "MR-";
@@ -111,7 +122,7 @@
 {#if compact}
   <MarketRowBase
     compact
-    title={contract.itemName}
+    {title}
     {thumb}
     fallbackThumb={RIVEN_TEMPLATE_URL}
     badgeLabel={badge}
@@ -156,7 +167,7 @@
   </MarketRowBase>
 {:else}
   <MarketRowBase
-    title={contract.itemName}
+    {title}
     {thumb}
     fallbackThumb={RIVEN_TEMPLATE_URL}
     {rankBadges}

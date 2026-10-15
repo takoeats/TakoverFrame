@@ -1,5 +1,6 @@
 /** Cache main-process WFM riven searches for ten minutes. */
 
+import { wfmAttributeLabel } from "../config/shared/wfmRivenVocabulary";
 import { withScope } from "./logger";
 import type {
   WfmRawAuction,
@@ -56,9 +57,7 @@ function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
     }
 
     const stats = a.item.attributes.map((attr) => ({
-      name: String(attr.url_name || "")
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      name: wfmAttributeLabel(String(attr.url_name || "")),
       value: typeof attr.value === "number" ? attr.value : 0,
       positive: attr.positive !== false,
     }));

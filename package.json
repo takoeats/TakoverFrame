@@ -1,9 +1,9 @@
 {
-  "name": "wfhelper",
-  "version": "0.0.0",
-  "description": "Warframe companion: inventory, foundry, relic and riven scanning, market orders.",
+  "name": "takoverframe",
+  "version": "0.1.7",
+  "description": "Warframe companion for the Korean client: relic reward prices, inventory and warframe.market orders. Fork of WFHelper.",
   "main": ".electron-build/main.js",
-  "desktopName": "wfhelper.desktop",
+  "desktopName": "takoverframe.desktop",
   "engines": {
     "node": ">=22.12",
     "pnpm": ">=11"
@@ -85,9 +85,10 @@
   "keywords": [
     "warframe",
     "companion",
-    "inventory"
+    "inventory",
+    "korean"
   ],
-  "author": "WFHelper",
+  "author": "takoeats",
   "license": "MIT",
   "devDependencies": {
     "@electron/asar": "^3.4.1",
@@ -133,17 +134,17 @@
     "lzma": "^2.3.2",
     "ms": "2.1.3",
     "onnxruntime-node": "^1.24.3",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "warframe-public-export-plus": "^0.6.8",
     "ws": "^8.21.0"
   },
   "optionalDependencies": {
-    "@img/sharp-linux-x64": "0.35.4",
-    "@img/sharp-libvips-linux-x64": "1.3.3"
+    "@img/sharp-libvips-linux-x64": "1.3.3",
+    "@img/sharp-linux-x64": "0.35.4"
   },
   "build": {
-    "appId": "com.wfhelper.app",
-    "productName": "WFHelper",
+    "appId": "com.takoverframe.app",
+    "productName": "TakoverFrame",
     "directories": {
       "output": "release"
     },
@@ -222,9 +223,8 @@
       "oneClick": false,
       "displayLanguageSelector": true,
       "installerLanguages": [
-        "en_US",
-        "de_DE",
-        "zh_CN"
+        "ko_KR",
+        "en_US"
       ],
       "perMachine": false,
       "allowElevation": true,
@@ -234,8 +234,8 @@
       "uninstallerIcon": "assets/logo.ico",
       "installerHeaderIcon": "assets/logo.ico",
       "include": "build/installer.nsh",
-      "uninstallDisplayName": "WFHelper",
-      "shortcutName": "WFHelper",
+      "uninstallDisplayName": "TakoverFrame",
+      "shortcutName": "TakoverFrame",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
@@ -244,9 +244,20 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "WFHelper",
-        "repo": "WFHelper",
+        "owner": "takoeats",
+        "repo": "TakoverFrame",
         "releaseType": "release"
+      }
+    ],
+    "copyright": "Copyright (c) 2026 WFHelper, takoeats",
+    "extraFiles": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "NOTICE.md",
+        "to": "NOTICE.md"
       }
     ]
   },

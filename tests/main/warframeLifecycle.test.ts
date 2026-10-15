@@ -75,8 +75,8 @@ type Lifecycle = typeof import("../../services/warframeLifecycle");
 let lifecycle: Lifecycle;
 const configPath = path.join("C:\\App Data\\WFHelper", "warframe-watcher.json");
 const taskPath = path.join("C:\\App Data\\WFHelper", "warframe-watcher-task.xml");
-const LEGACY_TASK = "WFHelperWarframeWatcher";
-const USER_TASK = "WFHelper\\WarframeWatcher-Tester";
+const LEGACY_TASK = "TakoverFrameWarframeWatcher";
+const USER_TASK = "TakoverFrame\\WarframeWatcher-Tester";
 const quit = vi.fn();
 
 function schtasksCalls(): string[] {

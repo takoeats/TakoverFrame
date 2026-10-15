@@ -12,6 +12,8 @@
   import OrderStepper from "./OrderStepper.svelte";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
   import { tr } from "../../lib/i18n.js";
+  import { marketItemLabel } from "../../lib/itemLabel.js";
+  import { itemDb, wfmItems } from "../../stores/data.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import { listingWarning, type ListingInventoryMatch } from "../../lib/marketListing.js";
   import type { OrderModalHint, WfmOrder } from "../../types/market.js";
@@ -40,6 +42,11 @@
   let variantPrices: { wts: number | null; wtb: number | null } | null = null;
   let variantRequest = 0;
 
+  $: title = marketItemLabel(order.itemName, $wfmItems, $itemDb);
+  // The icon mirror lags warframe.market (thumbs it holds as PNG are now WebP
+  // there), so a missing thumb falls back to the item database art.
+  $: fallbackThumb =
+    $itemDb[$wfmItems[order.itemName.toLowerCase()]?.gameRef ?? ""]?.imageUrl ?? null;
   $: modVariant = WFM_MOD_VARIANTS.some((variant) => variant === order.subtype);
   $: void loadVariantPrices(order.itemUrlName, order.modRank, modVariant ? order.subtype : null);
 
@@ -181,8 +188,9 @@
 {#if compact}
   <MarketRowBase
     compact
-    title={order.itemName}
+    {title}
     thumb={order.itemThumb}
+    {fallbackThumb}
     badgeLabel={orderKind}
     badgeClass={orderKindClass}
     onOpen={() => onOpen(order)}
@@ -298,8 +306,9 @@
   </MarketRowBase>
 {:else}
   <MarketRowBase
-    title={order.itemName}
+    {title}
     thumb={order.itemThumb}
+    {fallbackThumb}
     fullClass="grid grid-cols-[auto_minmax(0,1fr)_auto] items-stretch gap-2 px-2.5 py-2.5"
     fullMainClass="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-x-2 gap-y-1"
     fullContentClass="contents"

@@ -14,8 +14,9 @@
     type SyndicateGoalPlan,
     type SyndicateStatus,
   } from "../lib/syndicates/rankup.js";
+  import { localizeSyndicates } from "../lib/syndicates/names.js";
   import { SYNDICATE_RANKS } from "../data/syndicateRanks.js";
-  import { componentOwnership, inventoryData, itemDb } from "../stores/data.js";
+  import { componentOwnership, inventoryData, itemDb, syndicateNames } from "../stores/data.js";
   import { activeItem } from "../stores/modals.js";
   import {
     clearSyndicateGoals,
@@ -44,7 +45,8 @@
     steps: RankUpStep[];
   }
 
-  const NAME_BY_TAG = new Map(SYNDICATE_RANKS.map((meta) => [meta.tag, meta.name]));
+  const syndicates = $derived(localizeSyndicates(SYNDICATE_RANKS, $syndicateNames));
+  const NAME_BY_TAG = $derived(new Map(syndicates.map((meta) => [meta.tag, meta.name])));
 
   const inv = $derived($inventoryData);
   const db = $derived($itemDb);
@@ -52,7 +54,7 @@
   const owned = $derived($componentOwnership);
 
   const cards = $derived(
-    SYNDICATE_RANKS.map((meta): SyndicateCard => {
+    syndicates.map((meta): SyndicateCard => {
       const status = syndicateStatus(inv, meta);
       const span = status.tierEnd - status.tierStart;
       const goal = $syndicateGoals[meta.tag] ?? null;

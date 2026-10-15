@@ -13,6 +13,13 @@ const mocks = vi.hoisted(() => ({
   assertMainRendererSender: vi.fn(),
   getVersion: vi.fn(() => "2.0.0-test"),
   logPath: null as string | null,
+  // The fork turns the relay off; the upstream relay tests below run with it on.
+  feedbackEnabled: true,
+}));
+vi.mock("../../config/shared/forkConfig", () => ({
+  get BACKEND_FEEDBACK_ENABLED() {
+    return mocks.feedbackEnabled;
+  },
 }));
 vi.mock("electron", () => ({ app: { getVersion: mocks.getVersion } }));
 vi.mock("../../services/logger", () => ({ getLogFilePath: () => mocks.logPath }));
@@ -125,6 +132,7 @@ describe("feedback submission IPC", () => {
   beforeEach(() => {
     mocks.handleAuthorized.mockClear();
     mocks.logPath = null;
+    mocks.feedbackEnabled = true;
     request.mockReset();
     vi.stubGlobal("fetch", request);
     register();
@@ -149,6 +157,12 @@ describe("feedback submission IPC", () => {
       platform: process.platform,
       diagnostics: { osVersion: os.release(), arch: process.arch },
     });
+  });
+
+  it("reports unavailable without contacting the relay when the fork disables it", async () => {
+    mocks.feedbackEnabled = false;
+    expect(await submit(null, report)).toEqual({ ok: false, error: "unavailable" });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("rejects invalid input without contacting the relay", async () => {

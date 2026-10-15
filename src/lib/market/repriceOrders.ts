@@ -25,7 +25,10 @@ export interface RepriceRow {
 
 export type RepriceSkipReason = "no-book" | "no-price" | "unchanged" | "not-sell";
 
-export function buildRepriceRows(orders: readonly WfmOrder[]): RepriceRow[] {
+export function buildRepriceRows(
+  orders: readonly WfmOrder[],
+  labelOf: (order: WfmOrder) => string = (order) => order.itemName,
+): RepriceRow[] {
   const rows: RepriceRow[] = [];
   for (const order of orders) {
     const slug = order.itemUrlName;
@@ -33,7 +36,7 @@ export function buildRepriceRows(orders: readonly WfmOrder[]): RepriceRow[] {
     rows.push({
       rowId: order.id,
       order,
-      label: order.itemName || slug,
+      label: labelOf(order) || slug,
       slug,
       rank: order.modRank ?? null,
       subtype: order.subtype ?? null,

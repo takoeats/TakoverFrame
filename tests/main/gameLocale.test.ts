@@ -53,6 +53,14 @@ describe("game locale", () => {
     expect(localizeName("", "Serration")).toBe("Serration");
   });
 
+  it("drops in-game icon tags the app cannot draw", () => {
+    setGameLocale("ko");
+
+    expect(localizeName("/Lotus/Language/Narmer/ArchonCrystalNiraName", "Amber Archon Shard")).toBe(
+      "황색 집정관 샤드",
+    );
+  });
+
   it("only claims to be localizing when a table is actually loaded", () => {
     expect(isLocalizingNames()).toBe(false);
 

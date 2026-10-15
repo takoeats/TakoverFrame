@@ -1,202 +1,34 @@
-# WFHelper
+# TakoverFrame
 
-Unofficial Warframe companion app for Windows and Linux. It reads your
-inventory, prices it with live warframe.market data, scans relic rewards on
-screen and tracks your arbitration runs straight from EE.log.
+Korean client support for [WFHelper](https://github.com/WFHelper/WFHelper), the Warframe
+companion app: relic reward prices read from the Korean game screen, and a Korean UI.
+Everything else is the work of the WFHelper developers.
 
-**[wfhelper.com](https://wfhelper.com)**: download, the full feature tour, and FAQ.
+워프레임 한국어 클라이언트용 WFHelper 포크입니다. 한국어 렐릭 보상 인식과 한국어 UI를
+더했고, 나머지는 모두 WFHelper 개발자들의 작업입니다.
 
-![WFHelper inventory with live warframe.market prices](.github/screenshots/inventory.png)
+## Download / 다운로드
 
-<sub>Shown in the midnight-blue theme. 16 themes are built in, or build your own.</sub>
+Get `TakoverFrame-<version>-Setup.exe` from [Releases](https://github.com/takoeats/TakoverFrame/releases/latest).
+Installed copies update themselves. The installer is not code-signed, so Windows
+SmartScreen may warn: More info, then Run anyway.
 
-## Features
+[Releases](https://github.com/takoeats/TakoverFrame/releases/latest)에서
+`TakoverFrame-<버전>-Setup.exe`를 받으세요. 설치 후에는 자동으로 업데이트됩니다. 코드 서명이
+없어 SmartScreen 경고가 뜰 수 있습니다: 추가 정보, 실행.
 
-In the app:
+Reading Korean rewards needs the Korean OCR feature of Windows (Settings, Time & language,
+Language & region, Korean, Optical character recognition). The app tells you when it is missing.
 
-- Inventory: your whole account with platinum prices, order books and an
-  equipment tab for weapons and frames
-- Relics: the relics you own with their contents, drop sources and rewards
-- Foundry: crafting requirements down to every component
-- Mastery: what you have not mastered yet, and what you could build
-- Rivens: your rivens compared with the market, plus a riven finder
-- Market: manage your warframe.market orders in the app (sign-in optional)
-- Arbitrations: each run analyzed from EE.log (kills, drones, rotations and
-  vitus luck against the expected drop rates), plus the schedule with desktop
-  notifications for favorited nodes
-- World: cycles, fissures, invasions, bounties and circuit rotations
-- Stats: daily platinum, credits and endo, plus your trade history
-- Wiki: item drop locations and relic reward tables
-- Themes: preset looks, or build your own
+## Safety / 안전
 
-In-game overlays (Warframe in Borderless mode):
+The app reads the game's log and memory only. It does not modify game files, inject into the
+game or automate gameplay. Market data comes from WFHelper's backend, to which the app
+identifies as TakoverFrame. Use at your own risk.
 
-- Relic rewards: prices every reward when your squad's relics crack
-- Relic planner: ranks the relics you own on the relic selection screen
-- Riven scanner: reads the rolls and compares old and new stats while you reroll
-- Arbitration summary: your run stats as soon as the mission ends
-
-Notifications: in-game whispers, warframe.market DMs and arbitration windows can
-show desktop notifications while you play.
-
-> **Set Warframe's interface language to English.** Relic and riven scans only
-> read English item names. WFHelper's own display language is separate and can
-> be changed in Settings.
-
-## Install
-
-Download the latest `WFHelper-<version>-Setup.exe` from
-[Releases](https://github.com/WFHelper/WFHelper/releases) and run it.
-
-Windows SmartScreen may warn you the first time because the installer is not
-code-signed: click "More info", then "Run anyway".
-
-### Linux
-
-Download `WFHelper-<version>.AppImage` from
-[Releases](https://github.com/WFHelper/WFHelper/releases), make it executable
-and run it:
-
-```
-chmod +x WFHelper-*.AppImage
-./WFHelper-*.AppImage
-```
-
-In a file manager instead: right-click the file, open Properties, then
-Permissions, tick "Allow executing as program" and double-click it.
-
-Good to know:
-
-- **Warframe runs through Steam (Proton), Heroic, Lutris, Bottles or Wine.**
-  WFHelper finds the game's log on its own, including Flatpak installs and
-  Snap Steam.
-- **Inventory comes straight from the running game.** Nothing extra to
-  download on Linux.
-- **Wayland picks its own backend.** The app puts itself on XWayland so the overlays
-  can sit on top of the game. Compositors without a real XWayland (niri) show
-  no window at all, so WFHelper notices, restarts on native Wayland and
-  remembers it. Settings lets you pick the backend by hand. Wayland gives no
-  app a way to force itself above another, so overlays are best-effort there.
-- **Native Wayland has no global hotkeys.** The overlay unlock key never fires
-  there, so use "Switch to interactive overlays" in Settings > Overlays, or bind
-  `--toggle-overlay-interaction` to a key in your compositor. In niri:
-  `Mod+I { spawn "/path/to/WFHelper.AppImage" "--toggle-overlay-interaction"; }`
-- **SteamOS is untested.** Desktop mode may work like any other distro. Game
-  mode is not supported: gamescope only displays the game it launched, so
-  forcing the app into it can freeze the session.
-- **Screen capture:** on sway, Hyprland, river and niri, WFHelper copies the
-  screen straight from the compositor with no dialog, also under XWayland. On
-  GNOME, KDE Plasma and COSMIC the first overlay scan opens the screen-share
-  dialog once per session. Pick the monitor Warframe runs on.
-- **On Steam, instant overlays need one launch option.** Add
-  `PROTON_LOG=1 %command%` to Warframe's launch options (right-click Warframe,
-  Properties, Launch Options) and restart the game. The setup wizard shows the same string
-  with a copy button. Without it the overlays still fire, just a few seconds
-  later.
-
-### Linux requirements
-
-- **AppImage on Ubuntu 24.04 or newer:** install `libfuse2t64` and start the
-  AppImage with `--no-sandbox` (Ubuntu's AppArmor blocks Electron's sandbox).
-- **Inventory from the running game and mission tracking:** both read the
-  game's memory, which Ubuntu, Arch and many other distributions block by
-  default (`kernel.yama.ptrace_scope=1`). Allow it until the next reboot with
-  `sudo sysctl kernel.yama.ptrace_scope=0`, or keep it with
-  `echo 'kernel.yama.ptrace_scope = 0' | sudo tee /etc/sysctl.d/99-ptrace.conf`
-  followed by `sudo sysctl --system`. This lets any program you run read the
-  memory of your other programs. If you would rather not allow that, use the
-  JSON or AlecaFrame import.
-- **Reward and planner scans:**
-  - sway, Hyprland, river and niri: nothing to install and no dialog, also
-    under XWayland. WFHelper copies the screen straight from the compositor.
-    If you turned on Hyprland's permission prompts, allow screen copy for
-    WFHelper.
-  - GNOME, KDE Plasma and COSMIC: scans go through the desktop's screen-share
-    portal. Install `xdg-desktop-portal-gnome` (GNOME), `xdg-desktop-portal-kde`
-    (KDE Plasma) or `xdg-desktop-portal-cosmic` (COSMIC) and log out and back
-    in. To check it, start a PipeWire screen capture in OBS or share your
-    screen in a browser: a share dialog should open. **Settings > Overlays >
-    Set up screen capture** opens that dialog before you play, so it does not
-    hide behind the game on the first reward screen.
-  - GNOME has no layer-shell overlays, so keep WFHelper on XWayland there.
-  - On an X11 session there is no dialog and nothing to install.
-- **Saving your warframe.market login needs a keyring:** gnome-keyring, KWallet
-  or KeePassXC with Secret Service turned on. WFHelper uses it on its own when
-  one is running. If you still have to sign in after every restart, start
-  WFHelper with `--password-store=gnome-libsecret` (or
-  `--password-store=kwallet6` on KDE).
-
-### Inventory data
-
-The game has no local inventory API, so the first-run wizard offers three
-sources:
-
-- warframe-api-helper (recommended): on Windows it downloads
-  [Sainan/warframe-api-helper](https://github.com/Sainan/warframe-api-helper)
-  and loads its `inventory.json` snapshots while you play. On Linux this option
-  is called "Read from the running game": WFHelper takes the login token from
-  the running game and downloads your inventory itself
-- JSON import: open an `inventory.json` export you already have
-- AlecaFrame import: decrypts AlecaFrame's local `lastData.dat` cache
-
-You can also pick "Continue without inventory". World, the warframe.market
-features and the relic reward, riven and arbitration overlays work without
-one. Everything based on what you own (owned counts, the relic planner,
-Foundry, Mastery) needs an inventory, which you can connect later in Settings.
-
-Only the recommended helper ("Read from the running game" on Linux) and the
-optional mission tracking read the game's memory. The JSON and AlecaFrame
-imports and the overlays never do.
-
-## Privacy
-
-Inventory snapshots, captured arbitration logs and stats stay on your PC. The
-app talks to its own caching backend for warframe.market prices, icons and new
-relic data, to the public game-data sources listed below, and to GitHub for
-updates. The app has no crash reporting or telemetry. Each backend request
-leaves a record of its route, status, timing and item slug in Cloudflare and
-Grafana, and the backend keeps an anonymous count of daily active users.
-The installed app checks for updates when it starts and every 6 hours; you
-choose when to download and install one.
-
-## Building from source
-
-You need Node 22.12 or newer and pnpm 11 (through corepack).
-
-```
-corepack enable
-pnpm install --frozen-lockfile
-pnpm run dev        # run in development
-pnpm run dist:win   # build the Windows installer (NSIS)
-```
-
-## Credits
-
-- [warframe.market](https://warframe.market): prices and order data
-- Digital Extremes' Public Export: item data and images
-- [WFCD](https://github.com/WFCD) community projects: the item database
-  ([warframe-items](https://github.com/WFCD/warframe-items)), drop tables
-  ([drops.warframestat.us](https://drops.warframestat.us)) and the world-state API
-- [browse.wf](https://browse.wf): extra item icons
-- [sves' arbi analyzer](https://svesk.github.io/arbi/): the arbitration stats
-  model this app's analyzer is ported from
-- [Sainan/warframe-api-helper](https://github.com/Sainan/warframe-api-helper):
-  the inventory snapshot tool
-- AlecaFrame: the `lastData.dat` format the import reads
-
-## Support
-
-WFHelper is free and open source, with no ads or accounts. If it saves you
-plat, [Patreon](https://www.patreon.com/WFHelper) helps pay for the Cloudflare
-hosting it runs on. Supporters get a Discord role and a thank-you in the app.
-
-## Disclaimer
-
-Unofficial fan project, not affiliated with or endorsed by Digital
-Extremes. "Warframe" and related assets are property of Digital Extremes
-Ltd.
+Not affiliated with WFHelper, Digital Extremes or warframe.market.
 
 ## License
 
-[MIT](LICENSE). The bundled Barlow and Rajdhani fonts in `renderer/fonts/` are
-licensed under the SIL Open Font License 1.1.
+MIT, see [LICENSE](LICENSE). WFHelper's copyright and the third-party notices are in
+[NOTICE.md](NOTICE.md).

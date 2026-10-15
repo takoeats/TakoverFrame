@@ -26,7 +26,7 @@
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import RivenPolarityIcon from "../components/RivenPolarityIcon.svelte";
   import ItemImage from "../components/ItemImage.svelte";
-  import { inventoryData, itemDb } from "../stores/data.js";
+  import { inventoryData, itemDb, rivenStatNames } from "../stores/data.js";
   import { sharedFilters } from "../stores/filters.js";
   import { rivenCardSize } from "../stores/rivenCardSize.js";
   import { marketContracts } from "../stores/market.js";
@@ -37,6 +37,8 @@
     RIVEN_ATTR_GRADE_KEYS,
     RIVEN_ATTR_GRADE_ORDER,
     RIVEN_TYPE_KEYS,
+    rivenNameLabel,
+    rivenWeaponLabel,
   } from "../lib/rivenLabels.js";
 
   type RivenSortKey = "name" | "disposition" | "rerolls" | "grade" | "attr_grade";
@@ -98,6 +100,7 @@
   const rivenFilters = sharedFilters("rivens");
   function filterableRiven(riven: DecodedRiven): {
     name: string;
+    displayName: string;
     keywords: string[];
     disposition: number;
     rerolls: number;
@@ -106,8 +109,12 @@
   } {
     return {
       name: riven.weaponName,
+      displayName: rivenWeaponLabel(riven, $itemDb),
       // rivenName makes the generated suffix searchable ("satidra", "croni").
-      keywords: [riven.rivenName, ...riven.stats.map((stat) => stat.name)],
+      keywords: [
+        riven.rivenName,
+        ...riven.stats.flatMap((stat) => [stat.name, rivenNameLabel(stat.name, $rivenStatNames)]),
+      ],
       disposition: riven.disposition,
       rerolls: riven.rerolls,
       grade: riven.overallGrade,
@@ -303,7 +310,7 @@
         <img class={iconCls} src={elementIcon(stat.name)} alt="" />
       {/if}
       <span class="overflow-hidden text-ellipsis text-text-primary font-medium min-w-0"
-        >{stat.name}</span
+        >{rivenNameLabel(stat.name, $rivenStatNames)}</span
       >
     </div>
   {/each}
@@ -479,13 +486,13 @@
                   <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
                     <ItemImage
                       src={$itemDb[riven.weaponUniqueName]?.imageUrl ?? null}
-                      alt={riven.weaponName}
+                      alt={rivenWeaponLabel(riven, $itemDb)}
                       cls="max-h-full max-w-full"
                     />
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="truncate font-display text-sm font-bold text-text-heading">
-                      {riven.weaponName}
+                      {rivenWeaponLabel(riven, $itemDb)}
                     </div>
                     {#if suffix}
                       <div class="truncate font-display text-xs text-text-secondary">{suffix}</div>
@@ -569,7 +576,7 @@
                   <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
                     <span
                       class="font-display text-xl max-[700px]:text-xl font-bold text-text-heading leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]"
-                      >{riven.weaponName}</span
+                      >{rivenWeaponLabel(riven, $itemDb)}</span
                     >
                     {#if suffix}
                       <span

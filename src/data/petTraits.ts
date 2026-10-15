@@ -7,6 +7,7 @@ interface PetTraitName {
   en: string;
   de: string;
   zh: string;
+  ko?: string;
 }
 
 interface PetColorTrait {

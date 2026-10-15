@@ -10,6 +10,7 @@ import type {
   DropSearchResult,
 } from "../config/shared/dropTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { dropLabeler, labelDropRows } from "./dropLabels";
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 import { correctedDropRarity } from "./relicRarity";
@@ -348,6 +349,11 @@ export function searchDrops(
     .toLowerCase();
   if (!q) return { rows: [], total: 0 };
 
+  // The name as the game language shows it matches too, spacing aside: players
+  // type it the way they read it in game.
+  const labeler = dropLabeler();
+  const compactQuery = q.replace(/\s+/g, "");
+
   const scored: Array<{ row: DropRow; score: number }> = [];
   for (const row of rows) {
     // "enemy" is the place search narrowed to the enemy tables; a location
@@ -355,9 +361,14 @@ export function searchDrops(
     if (mode === "enemy" && row.kind !== "enemy") continue;
     const field = (mode === "item" ? row.item : placeSearchField(row)).toLowerCase();
     const idx = field.indexOf(q);
-    if (idx < 0) continue;
-    const score = idx === 0 ? 0 : /\s/.test(field[idx - 1] || "") ? 1 : 2;
-    scored.push({ row, score });
+    if (idx >= 0) {
+      scored.push({ row, score: idx === 0 ? 0 : /\s/.test(field[idx - 1] || "") ? 1 : 2 });
+      continue;
+    }
+    if (!labeler) continue;
+    const label = mode === "item" ? labeler.item(row.item) : labeler.place(row.place);
+    const labelIdx = labeler.compact(label).indexOf(compactQuery);
+    if (labelIdx >= 0) scored.push({ row, score: labelIdx === 0 ? 0 : 2 });
   }
 
   scored.sort(
@@ -368,7 +379,10 @@ export function searchDrops(
       a.row.place.localeCompare(b.row.place),
   );
 
-  return { rows: scored.slice(0, limit).map((s) => s.row), total: scored.length };
+  return {
+    rows: labelDropRows(scored.slice(0, limit).map((s) => s.row)),
+    total: scored.length,
+  };
 }
 
 const STACK_PREFIX = /^\d+x /;

@@ -21,6 +21,8 @@ export interface ArbiSchedulePayload {
   /** Wall clock of the last successful arbys.txt fetch; null before first fetch. */
   fetchedAt: number | null;
   alerts: ArbiScheduleAlerts;
+  /** English node, mission and faction -> game-language label; absent under English. */
+  labels?: Record<string, string>;
 }
 
 export function arbiOccurrenceKey(entry: Pick<ArbiScheduleEntry, "epochMs" | "nodeId">): string {

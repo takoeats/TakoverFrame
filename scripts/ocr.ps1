@@ -1,7 +1,7 @@
 # ocr.ps1 - Windows built-in OCR (WinRT) for relic reward detection
-# Usage: powershell -ExecutionPolicy Bypass -File ocr.ps1 "C:\path\to\image.png"
+# Usage: powershell -ExecutionPolicy Bypass -File ocr.ps1 "C:\path\to\image.png" [-Lang ko]
 # Outputs: recognized text to stdout
-param([string]$ImagePath)
+param([string]$ImagePath, [string]$Lang = "en")
 
 $ErrorActionPreference = "Stop"
 
@@ -65,10 +65,10 @@ try {
     # Try English first - Warframe's riven stats are always in English
     # regardless of the user's game language setting.  Using the English OCR
     # model gives the best recognition accuracy for stat names.
-    $lang   = [Windows.Globalization.Language]::new("en")
+    $lang   = [Windows.Globalization.Language]::new($Lang)
     $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang)
     if ($null -eq $engine) {
-        # Fallback: use system language if English pack is unavailable
+        # Fallback: use system language if the requested pack is unavailable
         $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
     }
     if ($null -eq $engine) {

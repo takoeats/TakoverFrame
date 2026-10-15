@@ -396,6 +396,7 @@ function parseImageArg(argv) {
         result = await app.evaluate(
           async ({ nativeImage }, p) => {
             const scanner = process.mainModule.require(p.scannerPath);
+            if (p.locale) process.mainModule.require(p.gameLocalePath).setGameLocale(p.locale);
             const image = nativeImage.createFromPath(p.imgPath);
             if (image.isEmpty()) return { error: "image failed to load" };
             // same frame is scanned once per reader, and the dedup cache would
@@ -412,7 +413,14 @@ function parseImageArg(argv) {
               { reader: p.reader },
             );
           },
-          { imgPath, scannerPath, reader },
+          {
+            imgPath,
+            scannerPath,
+            reader,
+            // REWARD_SCAN_LOCALE=ko scans as a Korean client.
+            locale: process.env.REWARD_SCAN_LOCALE || null,
+            gameLocalePath: path.join(path.dirname(scannerPath), "gameLocale.js"),
+          },
         );
       } catch (err) {
         if (!/has been closed|Target closed/i.test(String(err))) throw err;
@@ -430,7 +438,10 @@ function parseImageArg(argv) {
   }
 
   try {
-    await new Promise((r) => setTimeout(r, 9000));
+    // A scan that overlaps the boot relic-data rebuild (seconds on the
+    // main thread) runs out of budget before OCR; REWARD_SCAN_WARMUP_MS waits it out.
+    const warmupMs = Number(process.env.REWARD_SCAN_WARMUP_MS) || 9000;
+    await new Promise((r) => setTimeout(r, warmupMs));
     const scannerPath = path.join(ROOT, ".electron-build", "services", "rewardScanner.js");
 
     if (singleImage) {
@@ -517,8 +528,10 @@ function parseImageArg(argv) {
   }
   // Every fixture being skipped is not a pass; it means the gate never ran.
   if (!singleImage && gatingRuns === 0) failures.push("no gating fixture executed");
-  if (failures.length === 0) fs.rmSync(workDir, { recursive: true, force: true });
-  else {
+  if (failures.length === 0) {
+    // REWARD_SCAN_KEEP=1 keeps the app's logs after a pass.
+    if (!process.env.REWARD_SCAN_KEEP) fs.rmSync(workDir, { recursive: true, force: true });
+  } else {
     fs.writeFileSync(
       path.join(workDir, "failure.json"),
       JSON.stringify({ failures, gatingRuns, hostExit }, null, 2),

@@ -124,21 +124,31 @@
     return [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  $: suggestions = buildSuggestions(catalog, query);
+  $: suggestions = buildSuggestions(catalog, query, $itemDb);
   $: suggestionsOpen = showSuggestions && suggestions.length > 0;
   $: if (suggestions) activeSuggestion = 0;
 
-  function buildSuggestions(items: BrowseItem[], rawQuery: string): BrowseItem[] {
-    const needle = rawQuery.trim().toLowerCase();
+  // Both the English name and the label shown match, and spacing is ignored:
+  // players type names the way they read them in game, often without spaces.
+  function buildSuggestions(
+    items: BrowseItem[],
+    rawQuery: string,
+    db: typeof $itemDb,
+  ): BrowseItem[] {
+    const needle = compactName(rawQuery);
     if (needle.length < 2) return [];
     const starts: BrowseItem[] = [];
     const contains: BrowseItem[] = [];
     for (const item of items) {
-      const hay = item.name.toLowerCase();
-      if (hay.startsWith(needle)) starts.push(item);
-      else if (hay.includes(needle)) contains.push(item);
+      const hays = [compactName(item.name), compactName(catalogLabel(item, db))];
+      if (hays.some((hay) => hay.startsWith(needle))) starts.push(item);
+      else if (hays.some((hay) => hay.includes(needle))) contains.push(item);
     }
     return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
+  }
+
+  function compactName(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, "");
   }
 
   function moveSuggestion(delta: number): void {
@@ -194,7 +204,7 @@
   function pick(item: BrowseItem): void {
     ayatanMode = false;
     selected = item;
-    query = item.name;
+    query = catalogLabel(item, $itemDb);
     showSuggestions = false;
     rankFilter = "all";
     subtype = "regular";

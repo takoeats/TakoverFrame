@@ -8,6 +8,8 @@
   import { isActiveOrderStatus } from "../../config/shared/wfmOrders.js";
   import type { RivenBestAttributes, WfmRivenListing, RivenStatOption } from "../types/ipc.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
+  import { rivenNameLabel } from "../lib/rivenLabels.js";
+  import { rivenStatNames, rivenWeaponLabels } from "../stores/data.js";
 
   interface AttrSlot {
     positive: boolean;
@@ -43,10 +45,23 @@
     { positive: false, selectedStat: "", required: false },
   ]);
 
+  // The input shows the game-language name; selectedWeapon stays English for
+  // warframe.market and the grader.
+  function compactName(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, "");
+  }
+
+  function weaponLabel(name: string): string {
+    return rivenNameLabel(name, $rivenWeaponLabels);
+  }
+  const selectedWeaponLabel = $derived(selectedWeapon ? weaponLabel(selectedWeapon) : "");
+
   const filteredWeapons = $derived.by(() => {
     if (!weaponSearch) return weaponNames.slice(0, 50);
-    const q = weaponSearch.toLowerCase();
-    return weaponNames.filter((n) => n.toLowerCase().includes(q)).slice(0, 50);
+    const q = compactName(weaponSearch);
+    return weaponNames
+      .filter((n) => compactName(n).includes(q) || compactName(weaponLabel(n)).includes(q))
+      .slice(0, 50);
   });
 
   interface ScoredListing {
@@ -160,7 +175,7 @@
     const token = ++attributeRequest;
     searchRequest += 1;
     selectedWeapon = name;
-    weaponSearch = name;
+    weaponSearch = weaponLabel(name);
     showWeaponDropdown = false;
     bestAttrs = null;
     rawResults = [];
@@ -207,7 +222,7 @@
   }
 
   function handleWeaponInput() {
-    if (weaponSearch !== selectedWeapon) {
+    if (weaponSearch !== selectedWeaponLabel) {
       selectedWeapon = "";
       bestAttrs = null;
       rawResults = [];
@@ -237,14 +252,14 @@
           className="w-full"
           searchFocusTarget
         />
-        {#if showWeaponDropdown && weaponSearch !== selectedWeapon && filteredWeapons.length > 0}
+        {#if showWeaponDropdown && weaponSearch !== selectedWeaponLabel && filteredWeapons.length > 0}
           <div
             class="absolute top-full left-0 right-0 max-h-[220px] overflow-y-auto bg-bg-raised border border-border-strong rounded-b-[0.375rem] z-50"
           >
             {#each filteredWeapons as name}
               <button
                 class="block w-full py-1.5 px-2.5 border-0 bg-transparent text-text-primary font-body text-sm text-left cursor-pointer hover:bg-bg-hover hover:text-accent"
-                onclick={() => selectWeapon(name)}>{name}</button
+                onclick={() => selectWeapon(name)}>{weaponLabel(name)}</button
               >
             {/each}
           </div>
@@ -308,7 +323,9 @@
                   : $tr("rivens.finder.anyNegative")}</option
               >
               {#each statOptions as opt}
-                <option value={opt.wfmUrlName}>{opt.displayName}</option>
+                <option value={opt.wfmUrlName}
+                  >{rivenNameLabel(opt.displayName, $rivenStatNames)}</option
+                >
               {/each}
             </ThemedSelect>
             <label
@@ -459,7 +476,7 @@
                 ? 'text-success'
                 : 'text-danger'}"
             >
-              {s.positive ? "+" : "−"}{s.name}
+              {s.positive ? "+" : "−"}{rivenNameLabel(s.name, $rivenStatNames)}
             </span>
           {/each}
         </div>

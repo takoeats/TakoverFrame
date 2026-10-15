@@ -7,6 +7,7 @@ import type {
   SortDirection,
 } from "../types/filters.js";
 import type { MasteryStatus, PartType } from "../types/inventory.js";
+import { itemLabel } from "./itemLabel.js";
 
 // Value-like sorts read best-first; name/tier/time and "parts to complete"
 // read ascending. Every view derives its default direction from this.
@@ -288,14 +289,14 @@ export function compareSharedFilterSort<T extends FilterableItem>(
   const direction = filters.sortDirection === "asc" ? 1 : -1;
 
   if (filters.sortBy === "name") {
-    return direction * compareNames(a.name, b.name);
+    return direction * compareNames(itemLabel(a), itemLabel(b));
   }
 
   const aMetric = toMetric(a, filters.sortBy);
   const bMetric = toMetric(b, filters.sortBy);
   const numeric = compareNullableNumber(aMetric, bMetric, direction);
   if (numeric !== 0) return numeric;
-  return compareNames(a.name, b.name);
+  return compareNames(itemLabel(a), itemLabel(b));
 }
 
 export function applySharedFiltersAndSort<T extends FilterableItem>(

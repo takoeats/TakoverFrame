@@ -1,9 +1,17 @@
 import { invoke } from "./ipc.js";
 import { onInventoryLoaded } from "./actions.js";
 import { selectionOwnership, selectionTransitions } from "./inventory/selectionAlerts.js";
-import { itemDb, parsedItems, wfmItems } from "../stores/data.js";
+import {
+  itemDb,
+  parsedItems,
+  rivenStatNames,
+  rivenWeaponLabels,
+  syndicateNames,
+  wfmItems,
+} from "../stores/data.js";
 import { recordSelectionCompleteness, savedSelections } from "../stores/inventorySelection.js";
 import { relicDb } from "../stores/relics.js";
+import { pushStoredRelicSquadSize } from "./takover/relicSquad.js";
 import { applyUpdateState } from "../stores/updates.js";
 import { ensureOverlaySettingsLoaded } from "../stores/overlaySettings.js";
 import { watchBaroWishlistArrivals } from "../stores/baro.js";
@@ -31,8 +39,23 @@ let itemDbPull: Promise<void> | null = null;
 let lastSavedHotset: string | null = null;
 
 function pullItemDatabase(): Promise<void> {
+  // These ride along because a game-language change re-pulls through here too.
+  // A failure keeps the English names, so it never fails the pull.
+  void invoke("getSyndicateNames").then(
+    (names) => syndicateNames.set(names || {}),
+    (e: unknown) => log.warn("[Startup] getSyndicateNames failed:", e),
+  );
+  void invoke("getRivenStatNames").then(
+    (names) => rivenStatNames.set(names || {}),
+    (e: unknown) => log.warn("[Startup] getRivenStatNames failed:", e),
+  );
   const pull = invoke("getItemDatabase").then((db) => {
     itemDb.set(db || {});
+    // Weapon names come out of the item database, so they wait for it.
+    void invoke("getRivenWeaponLabels").then(
+      (labels) => rivenWeaponLabels.set(labels || {}),
+      (e: unknown) => log.warn("[Startup] getRivenWeaponLabels failed:", e),
+    );
   });
   itemDbPull = pull;
   const settle = (): void => {
@@ -97,6 +120,7 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
   // Before any view mounts: a lazily mounted view reads these stores on its
   // first paint and would otherwise show defaults for the user's saved settings.
   void ensureOverlaySettingsLoaded();
+  if (ownsSharedCaches) pushStoredRelicSquadSize();
 
   // These steps are independent and run concurrently: a slow snapshot fetch must
   // not hold up local IPC loads; worst case is max(network, local), not their sum.

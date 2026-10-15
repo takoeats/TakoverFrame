@@ -8,7 +8,8 @@
     settingNumber,
     widgetSettings,
   } from "../../stores/dashboard.js";
-  import { worldData, worldFissureMode, worldLoading } from "../../stores/world.js";
+  import { worldData, worldFissureMode, worldLabels, worldLoading } from "../../stores/world.js";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
   interface Props {
@@ -58,10 +59,14 @@
           class:world-badge-neo={fissure.tierCls === "neo"}
           class:world-badge-axi={fissure.tierCls === "axi"}
           class:world-badge-requiem={fissure.tierCls === "requiem"}
-          class:world-badge-omnia={fissure.tierCls === "omnia"}>{fissure.tier}</span
+          class:world-badge-omnia={fissure.tierCls === "omnia"}
+          >{worldLabel($worldLabels, fissure.tier)}</span
         >
         <span class="min-w-0 flex-1 truncate text-text-secondary">
-          {fissure.missionType} &middot; {fissure.node}
+          {worldLabel($worldLabels, fissure.missionType)} &middot; {worldLabel(
+            $worldLabels,
+            fissure.node,
+          )}
         </span>
         <span class="shrink-0 font-display tabular-nums text-text-primary">{fissure.timeStr}</span>
       </li>

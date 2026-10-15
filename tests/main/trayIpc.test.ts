@@ -86,7 +86,7 @@ describe("tray", () => {
     expect(tray.createTray()).toBe(true);
     expect(tray.isTrayActive()).toBe(true);
     expect(stub.trays).toHaveLength(1);
-    expect(stub.trays[0].tooltip).toBe("WFHelper");
+    expect(stub.trays[0].tooltip).toBe("TakoverFrame");
     expect(stub.trays[0].icon).toContain("assets");
     expect(item(stub.trays[0], 0)?.label).toBe("Show WFHelper");
     expect(item(stub.trays[0], 2)?.label).toBe("Quit");

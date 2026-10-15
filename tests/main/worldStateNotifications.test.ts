@@ -584,7 +584,9 @@ describe("windows toast audio and lifetime", () => {
     onQuit();
 
     expect(spawnArgs()).toHaveLength(1);
-    expect(spawnArgs()[0]?.join(" ")).toContain("History.RemoveGroup('wfc', 'com.wfhelper.app')");
+    expect(spawnArgs()[0]?.join(" ")).toContain(
+      "History.RemoveGroup('wfc', 'com.takoverframe.app')",
+    );
   });
 
   it("does not shell out on quit when no toast is outstanding", () => {

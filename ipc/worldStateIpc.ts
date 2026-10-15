@@ -9,6 +9,7 @@ import type { NotificationKind } from "../config/shared/notifications";
 import { withScope } from "../services/logger";
 import { dispatch } from "../services/notificationChannels";
 import * as worldStateParser from "../services/worldStateParser";
+import { withWorldLabels } from "../services/worldLabels";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { durationMsFromSeconds } from "../config/shared/numeric";
 import { missionTypeMatches } from "../config/shared/missionTypes";
@@ -25,7 +26,10 @@ import os from "node:os";
 
 const log = withScope("worldStateIpc");
 
-import { WIN_APP_USER_MODEL_ID as APP_USER_MODEL_ID } from "../config/shared/appMeta";
+import {
+  APP_PRODUCT_NAME,
+  WIN_APP_USER_MODEL_ID as APP_USER_MODEL_ID,
+} from "../config/shared/appMeta";
 
 const electronModule = require("electron") as Partial<typeof import("electron")>;
 let notificationCtor = electronModule.Notification;
@@ -191,7 +195,7 @@ function ensureStartMenuShortcut(): void {
       shell.writeShortcutLink(lnkPath, "create", {
         target: process.execPath,
         appUserModelId: APP_USER_MODEL_ID,
-        description: "WFHelper",
+        description: APP_PRODUCT_NAME,
       });
       log.info("[WorldState] created/updated Start Menu shortcut for notifications");
     }
@@ -745,7 +749,7 @@ function register(
   if (!electronModule.app?.isPackaged) {
     ipc.handle(NOTIFICATION_TEST, async (event: unknown) => {
       assertAuthorizedSender(assertMainRendererSender, event as never, NOTIFICATION_TEST);
-      sendDesktopNotificationRaw("WFHelper", "Test notification", "app");
+      sendDesktopNotificationRaw(APP_PRODUCT_NAME, "Test notification", "app");
       return true;
     });
   }
@@ -756,11 +760,11 @@ function register(
     const now = Date.now();
     if (_worldStateCache && now - _worldStateCacheTime < WORLD_STATE_TTL_MS) {
       checkPreCycleNotifications(_worldStateCache);
-      return _worldStateCache;
+      return withWorldLabels(_worldStateCache);
     }
 
     try {
-      return await refreshWorldState();
+      return withWorldLabels(await refreshWorldState());
     } catch (err) {
       const msg = normalizeErrorMessage(err);
       log.error("[WorldState] fetch failed:", msg);
@@ -768,7 +772,7 @@ function register(
       if (!_worldStateCache) {
         _worldStateCache = worldStateParser.emptyWorldState();
       }
-      return _worldStateCache;
+      return withWorldLabels(_worldStateCache);
     }
   });
   _registered = true;

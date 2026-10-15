@@ -1,4 +1,4 @@
-import { normalizeWfmSlugKey } from "../../config/shared/wfm.js";
+import { normalizeWfmSlugKey, titleFromSlug } from "../../config/shared/wfm.js";
 import { polarityToWfm, tagToWfmUrlName } from "../../config/shared/wfmRivenVocabulary.js";
 import { VARIANT_PREFIXES, VARIANT_SUFFIXES } from "../../config/shared/weaponVariants.js";
 import type { ListingInventoryMatch } from "./marketListing.js";
@@ -318,4 +318,35 @@ export function matchRivenListings<C extends ListedContract>(
   }
 
   return matched;
+}
+
+const slugLabelCache = new WeakMap<Readonly<Record<string, string>>, Map<string, string>>();
+
+// warframe.market names a contract's weapon only by slug, so the English-keyed
+// label table is re-keyed the way weaponSlug folds a name.
+function weaponLabelBySlug(slug: string, labels: Readonly<Record<string, string>>): string | null {
+  let bySlug = slugLabelCache.get(labels);
+  if (!bySlug) {
+    bySlug = new Map();
+    for (const [english, label] of Object.entries(labels)) {
+      const key = weaponSlug(english);
+      if (!bySlug.has(key)) bySlug.set(key, label);
+    }
+    slugLabelCache.set(labels, bySlug);
+  }
+  return bySlug.get(normalizeWfmSlugKey(slug)) ?? null;
+}
+
+/** The contract title with its weapon in the game language; `labels` is keyed by
+ *  lowercased English weapon name. Anything that does not line up stays English. */
+export function contractTitleLabel(
+  contract: Pick<WfmContract, "itemName" | "weaponUrlName">,
+  labels: Readonly<Record<string, string>>,
+): string {
+  const slug = contract.weaponUrlName;
+  const label = slug ? weaponLabelBySlug(slug, labels) : null;
+  if (!slug || !label) return contract.itemName;
+  const english = titleFromSlug(slug);
+  if (!contract.itemName.toLowerCase().startsWith(english.toLowerCase())) return contract.itemName;
+  return label + contract.itemName.slice(english.length);
 }

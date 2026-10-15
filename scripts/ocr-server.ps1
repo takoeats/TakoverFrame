@@ -144,6 +144,21 @@ try {
     exit 1
 }
 
+# Requests may name a language ("lang": "ko"); each one gets its own engine, made
+# on first use. An explicit language that is not installed fails that request
+# instead of reading with the default engine.
+$engines = @{}
+function Get-OcrEngine {
+    param([string]$Lang)
+    if (-not $Lang) { return $engine }
+    if (-not $engines.ContainsKey($Lang)) {
+        $created = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new($Lang))
+        if ($null -eq $created) { throw "OCR language '$Lang' is not installed" }
+        $engines[$Lang] = $created
+    }
+    return $engines[$Lang]
+}
+
 [Console]::Out.WriteLine("===OCR_SERVER_READY===")
 [Console]::Out.Flush()
 
@@ -158,7 +173,8 @@ while ($true) {
     try {
         $req = $trimmed | ConvertFrom-Json
         $bitmap = Get-SoftwareBitmap -ImagePath $req.imagePath -ImageBase64 $req.imageBase64
-        $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
+        $requestEngine = Get-OcrEngine -Lang $req.lang
+        $result = Await ($requestEngine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
 
         $lines = @()
         foreach ($ocrLine in $result.Lines) {

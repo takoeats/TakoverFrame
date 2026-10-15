@@ -25,6 +25,8 @@
   import { withinPlatRange, type PlatRange } from "../../lib/market/platRange.js";
   import { numOrUndef } from "../../lib/numberInput.js";
   import { tryLockOrders, unlockOrders } from "../../stores/market.js";
+  import { itemDb, wfmItems } from "../../stores/data.js";
+  import { marketItemLabel } from "../../lib/itemLabel.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import type { WfmOrder } from "../../types/market.js";
 
@@ -60,7 +62,9 @@
   const STRATEGIES = WORKBENCH_STRATEGY_IDS.filter((id) => id !== "manual");
 
   // svelte-ignore state_referenced_locally
-  let rows = $state<RepriceRow[]>(buildRepriceRows(orders));
+  let rows = $state<RepriceRow[]>(
+    buildRepriceRows(orders, (order) => marketItemLabel(order.itemName, $wfmItems, $itemDb)),
+  );
   let strategyId = $state<WorkbenchStrategyId>("cheapest-minus-one");
   let percentOffset = $state(-5);
   let averageCount = $state(3);

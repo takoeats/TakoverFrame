@@ -158,6 +158,18 @@ describe("shared filters", () => {
     expect(desc.map((row) => row.name)).toEqual(["C", "B", "A"]);
   });
 
+  it("sorts by the name the user reads, not the English join key", () => {
+    const items = [
+      { name: "Forma", displayName: "포르마" },
+      { name: "Ash", displayName: "애쉬" },
+      { name: "Nekros", displayName: "네크로스" },
+    ];
+
+    const sorted = applySharedFiltersAndSort(items, defaultFilters());
+
+    expect(sorted.map((row) => row.name)).toEqual(["Nekros", "Ash", "Forma"]);
+  });
+
   it("sorts by platinum and enforces minimum platinum", () => {
     const items = [
       { name: "Item A", platinum: 20 },

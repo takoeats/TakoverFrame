@@ -4,6 +4,8 @@
   import { tr, type MessageKey, type Translator } from "../../lib/i18n.js";
   import type { FissureAlert } from "../../types/ipc.js";
   import { FISSURE_MISSION_TYPES } from "../../../config/shared/missionTypes.js";
+  import { worldLabel } from "../../lib/world/worldLabels.js";
+  import { worldLabels } from "../../stores/world.js";
   import ThemedButton from "../ThemedButton.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
 
@@ -79,12 +81,13 @@
     await persistAlerts(alerts.filter((a) => a.id !== id));
   }
 
-  const tierLabel = (t: Translator, tier: string) =>
-    tier === "any" ? t("settings.fissureAnyTier") : tier;
-  const missionLabel = (t: Translator, m: string) =>
-    m === "any" ? t("settings.fissureAnyMission") : m;
-  const planetLabel = (t: Translator, p: string) =>
-    p === "any" ? t("settings.fissureAnyPlanet") : p;
+  // Rules keep the English values; only what the pickers and chips show moves.
+  const tierLabel = (t: Translator, labels: Record<string, string>, tier: string) =>
+    tier === "any" ? t("settings.fissureAnyTier") : worldLabel(labels, tier);
+  const missionLabel = (t: Translator, labels: Record<string, string>, m: string) =>
+    m === "any" ? t("settings.fissureAnyMission") : worldLabel(labels, m);
+  const planetLabel = (t: Translator, labels: Record<string, string>, p: string) =>
+    p === "any" ? t("settings.fissureAnyPlanet") : worldLabel(labels, p);
   const spLabel = (t: Translator, sp: string) =>
     sp === "any"
       ? t("settings.fissureAnyMode")
@@ -107,11 +110,11 @@
         <li class="flex items-center gap-1.5 flex-wrap">
           <span
             class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
-            >{tierLabel($tr, alert.tier)}</span
+            >{tierLabel($tr, $worldLabels, alert.tier)}</span
           >
           <span
             class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
-            >{missionLabel($tr, alert.missionType)}</span
+            >{missionLabel($tr, $worldLabels, alert.missionType)}</span
           >
           <span
             class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
@@ -119,7 +122,7 @@
           >
           <span
             class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
-            >{planetLabel($tr, alert.planet)}</span
+            >{planetLabel($tr, $worldLabels, alert.planet)}</span
           >
           <button
             class="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary cursor-pointer text-sm p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-danger/40 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -135,12 +138,12 @@
   <div class="flex items-center gap-1.5 flex-wrap">
     <ThemedSelect bind:value={newTier} disabled={saving}>
       {#each TIERS as t}
-        <option value={t}>{t === "any" ? $tr("settings.fissureAnyTier") : t}</option>
+        <option value={t}>{tierLabel($tr, $worldLabels, t)}</option>
       {/each}
     </ThemedSelect>
     <ThemedSelect bind:value={newMissionType} disabled={saving}>
       {#each MISSION_TYPES as m}
-        <option value={m}>{m === "any" ? $tr("settings.fissureAnyMission") : m}</option>
+        <option value={m}>{missionLabel($tr, $worldLabels, m)}</option>
       {/each}
     </ThemedSelect>
     <ThemedSelect bind:value={newSteelPath} disabled={saving}>
@@ -150,7 +153,7 @@
     </ThemedSelect>
     <ThemedSelect bind:value={newPlanet} disabled={saving}>
       {#each PLANETS as p}
-        <option value={p}>{p === "any" ? $tr("settings.fissureAnyPlanet") : p}</option>
+        <option value={p}>{planetLabel($tr, $worldLabels, p)}</option>
       {/each}
     </ThemedSelect>
     <ThemedButton size="compact" className="!text-text-primary" disabled={saving} onClick={addAlert}
