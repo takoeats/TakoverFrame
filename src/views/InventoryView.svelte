@@ -67,6 +67,7 @@
   import ChipToggleRow from "../components/inventory/ChipToggleRow.svelte";
   import { parseResources } from "../lib/inventory.js";
   import {
+    EQUIPMENT_CATEGORY_LABEL_KEYS,
     EQUIPMENT_CATEGORY_ORDER,
     classifyForFoundry,
   } from "../lib/inventory/foundryResources.js";
@@ -513,7 +514,10 @@
   // Untranslated for the same reason as the foundry category tabs.
   $: fullSetCategoryOptions =
     filter === "full_sets"
-      ? orderedSetCategories(tabBaseItems, $itemDb).map((key) => ({ key, label: key }))
+      ? orderedSetCategories(tabBaseItems, $itemDb).map((key) => ({
+          key,
+          label: $tr(EQUIPMENT_CATEGORY_LABEL_KEYS[key]),
+        }))
       : [];
   $: enabledSetCategories = new Set<string>(
     fullSetCategoryOptions

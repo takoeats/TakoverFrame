@@ -51,6 +51,15 @@ describe("contractTitleLabel", () => {
     ).toBe("실바 앤 에이지스 Riven");
   });
 
+  it("translates the Riven word after a translated weapon", () => {
+    expect(
+      contractTitleLabel({ itemName: "Soma Riven", weaponUrlName: "soma" }, labels, "리벤"),
+    ).toBe("소마 리벤");
+    expect(
+      contractTitleLabel({ itemName: "Braton Riven", weaponUrlName: "braton" }, labels, "리벤"),
+    ).toBe("Braton Riven");
+  });
+
   it("stays English when the title does not lead with the weapon", () => {
     expect(contractTitleLabel({ itemName: "Riven Contract", weaponUrlName: "soma" }, labels)).toBe(
       "Riven Contract",

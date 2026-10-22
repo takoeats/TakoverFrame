@@ -546,6 +546,75 @@ describe("overlay scan timing (eelog trigger)", () => {
     expect(autoHideDelays).toEqual([]);
   });
 
+  it("scans again when the reward cards draw after the retries gave up", async () => {
+    // Real case: the reward screen's backdrop sat empty for 6 s before the cards drew.
+    const empty: ScanResult = { items: [], meta: { layoutCount: 1, cardCount: 0 } };
+    const { controller, scanTimes, sentItems } = createHarness(foundReward, {
+      results: [...Array(10).fill(empty), foundReward],
+    });
+
+    const done = controller.dispatchRewardScan("eelog");
+    await vi.advanceTimersByTimeAsync(6_000);
+    await done;
+    expect(scanTimes).toHaveLength(10);
+    expect(sentItems.at(-1)).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    const signalAt = Date.now();
+    controller.notifyRewardUiReady();
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(650);
+
+    expect(scanTimes).toHaveLength(11);
+    expect(scanTimes[10] - signalAt).toBe(650);
+    expect(sentItems.at(-1)).toHaveLength(1);
+  });
+
+  it("does not scan again for a render signal once the cards were read", async () => {
+    const { controller, scanTimes } = createHarness();
+
+    const done = controller.dispatchRewardScan("eelog");
+    await vi.advanceTimersByTimeAsync(650);
+    await done;
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(scanTimes).toHaveLength(1);
+  });
+
+  it("does not scan again once the reward screen closed", async () => {
+    const empty: ScanResult = { items: [], meta: { layoutCount: 1, cardCount: 0 } };
+    const { controller, scanTimes } = createHarness(empty);
+
+    const done = controller.dispatchRewardScan("eelog");
+    await vi.advanceTimersByTimeAsync(6_000);
+    await done;
+    const scans = scanTimes.length;
+    controller.notifyRewardScreenClosed(0);
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(scanTimes).toHaveLength(scans);
+  });
+
+  it("scans again for late cards once per reward screen", async () => {
+    const empty: ScanResult = { items: [], meta: { layoutCount: 1, cardCount: 0 } };
+    const { controller, scanTimes } = createHarness(empty);
+
+    const done = controller.dispatchRewardScan("eelog");
+    await vi.advanceTimersByTimeAsync(6_000);
+    await done;
+    const scans = scanTimes.length;
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(scanTimes.length).toBeGreaterThan(scans);
+
+    const rescans = scanTimes.length;
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(scanTimes).toHaveLength(rescans);
+  });
+
   it("anchors the hide to the vote window when a status source is present", async () => {
     const { controller, autoHideDelays } = createHarness(foundReward, {
       status: () => ({

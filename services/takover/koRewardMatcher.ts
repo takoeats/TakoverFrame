@@ -19,12 +19,16 @@ interface IndexEntry<T> {
   forms: readonly string[];
   /** The forms split at the "Prime" word into base and part, for prime parts. */
   splits: ReadonlyArray<{ base: string; tail: string }>;
+  /** Every base in front of the "Prime" word, however short. */
+  primeBases: readonly string[];
 }
 
 export interface KoRewardIndex<T> {
   readonly entries: ReadonlyArray<IndexEntry<T>>;
   /** Distinct prime bases (Protea), in jamo. */
   readonly bases: readonly string[];
+  /** Every prime base, short ones (Bo) included, as syllables. */
+  readonly baseSyllables: readonly string[];
 }
 
 // A read holding the whole name plus noise scores from here up to 1, so the
@@ -54,6 +58,17 @@ const MIN_BASE_JAMO = 5;
 // noise names no part.
 const MIN_PART_READ_JAMO = 4;
 const MIN_PART_READ_RATIO = 0.4;
+// The art can also take the base's last syllable ("Voruna" read as "Voru"). Opening
+// syllables that start one base only still name it, and the part is then read past
+// about one syllable of noise per covered syllable.
+const MIN_KEPT_BASE_SYLLABLES = 2;
+const COVERED_SYLLABLE_JAMO = 3;
+
+// Prime parts share "Prime" and the part words, so a whole-name score stays high with
+// the base lost ("Bo" read as "Lo" scores 0.81). Unless the read opens with most of
+// the base, the score stays below the slot scan's near-miss rescue (0.80).
+const MIN_BASE_READ_SIMILARITY = 0.5;
+const UNREAD_BASE_CONFIDENCE = 0.75;
 
 function jamoOf(text: string): string {
   return toJamo(compactKoreanText(text));
@@ -73,11 +88,13 @@ export function buildKoRewardIndex<T>(
 ): KoRewardIndex<T> {
   const entries: IndexEntry<T>[] = [];
   const bases = new Set<string>();
+  const baseSyllables = new Set<string>();
   for (const item of items) {
     const names = namesOf(item);
     const forms = [...new Set(names.map(jamoOf))].filter(Boolean);
     if (forms.length === 0) continue;
     const splits: Array<{ base: string; tail: string }> = [];
+    const primeBases = new Set<string>();
     for (const name of names) {
       const at = name.indexOf(PRIME_WORD);
       if (at <= 0) continue;
@@ -85,13 +102,15 @@ export function buildKoRewardIndex<T>(
         base: hangulOnly(jamoOf(name.slice(0, at))),
         tail: hangulOnly(jamoOf(name.slice(at))),
       };
+      if (split.base) primeBases.add(split.base);
       if (split.base.length < MIN_BASE_JAMO) continue;
       splits.push(split);
       bases.add(split.base);
     }
-    entries.push({ item, forms, splits });
+    entries.push({ item, forms, splits, primeBases: [...primeBases] });
+    for (const base of primeBases) baseSyllables.add(base.normalize("NFC"));
   }
-  return { entries, bases: [...bases] };
+  return { entries, bases: [...bases], baseSyllables: [...baseSyllables] };
 }
 
 let rowA = new Uint16Array(64);
@@ -191,26 +210,84 @@ function clearWinner<K>(scored: Array<{ key: K; value: number }>, floor: number,
   return best;
 }
 
+function opensWithBase(read: string, primeBases: readonly string[]): boolean {
+  const front = hangulOnly(read);
+  return primeBases.some(
+    (base) => 1 - prefixDistance(front, base).distance / base.length > MIN_BASE_READ_SIMILARITY,
+  );
+}
+
+interface CoveredBase {
+  base: string;
+  /** Where the base read ends in the read. */
+  end: number;
+  /** The base's covered end, which the read holds as noise. */
+  lost: string;
+}
+
+/** The one base whose opening syllables (all but its covered end) open the read. */
+function truncatedBase<T>(read: string, index: KoRewardIndex<T>): CoveredBase | null {
+  const text = read.normalize("NFC");
+  let found: CoveredBase | null = null;
+  for (const base of index.bases) {
+    const syllables = [...base.normalize("NFC")];
+    for (let kept = syllables.length - 1; kept >= MIN_KEPT_BASE_SYLLABLES; kept--) {
+      const opening = syllables.slice(0, kept).join("");
+      if (!text.startsWith(opening)) continue;
+      const shared = index.baseSyllables.filter((other) => other.startsWith(opening));
+      if (shared.length > 1 || found) return null;
+      const end = toJamo(opening).length;
+      found = { base, end, lost: base.slice(end) };
+      break;
+    }
+  }
+  return found;
+}
+
+// Conjoining initial consonants: a read syllable starts at one.
+const SYLLABLE_ONSET_RE = /[\u1100-\u1112]/;
+
+// The part read past up to `maxNoise` jamo of noise standing in for the covered words.
+// The noise must end on a syllable and not be empty: with no trace of the covered
+// words, "X Blueprint" fits every part of X.
+function partPastNoise(rest: string, part: string, maxNoise: number): number {
+  let best = -1;
+  for (let noise = 1; noise <= Math.min(maxNoise, rest.length); noise++) {
+    const read = rest.slice(noise);
+    if (read.length < MIN_PART_READ_JAMO || read.length < part.length * MIN_PART_READ_RATIO) break;
+    if (!SYLLABLE_ONSET_RE.test(read[0])) continue;
+    best = Math.max(best, similarity(read, part));
+  }
+  return best;
+}
+
 /** Base off the front of the read, then the part off the rest; see PRIME_WORD. */
 function matchCoveredName<T>(fullRead: string, index: KoRewardIndex<T>): IndexEntry<T> | null {
   const read = hangulOnly(fullRead);
   const bases = index.bases.map((base) => {
     const { distance, end } = prefixDistance(read, base);
-    return { key: { base, end }, value: 1 - distance / base.length };
+    return { key: { base, end, lost: "" }, value: 1 - distance / base.length };
   });
-  const base = clearWinner(bases, MIN_BASE_SIMILARITY, MIN_BASE_MARGIN);
+  const base =
+    clearWinner(bases, MIN_BASE_SIMILARITY, MIN_BASE_MARGIN)?.key ?? truncatedBase(read, index);
   if (!base) return null;
 
-  const rest = read.slice(base.key.end);
+  const rest = read.slice(base.end);
+  const coveredSyllables = [...base.lost.normalize("NFC")].length + 1;
   const parts: Array<{ key: IndexEntry<T>; value: number }> = [];
   for (const entry of index.entries) {
     let best = -1;
     for (const split of entry.splits) {
-      if (split.base !== base.key.base) continue;
-      const partRead = rest.length - PRIME_JAMO;
+      if (split.base !== base.base) continue;
+      best = Math.max(
+        best,
+        partPastNoise(rest, split.tail.slice(PRIME_JAMO), coveredSyllables * COVERED_SYLLABLE_JAMO),
+      );
+      const tail = base.lost + split.tail;
+      const partRead = rest.length - (tail.length - split.tail.length) - PRIME_JAMO;
       if (partRead < MIN_PART_READ_JAMO) continue;
       if (partRead < (split.tail.length - PRIME_JAMO) * MIN_PART_READ_RATIO) continue;
-      best = Math.max(best, similarity(rest, split.tail));
+      best = Math.max(best, similarity(rest, tail));
     }
     if (best >= 0) parts.push({ key: entry, value: best });
   }
@@ -236,6 +313,14 @@ export function rankKoRewardCandidates<T>(
       }
     }
     if (!best) continue;
+    if (
+      best.mode === "fuzzy" &&
+      best.confidence > UNREAD_BASE_CONFIDENCE &&
+      entry.primeBases.length > 0 &&
+      !opensWithBase(read, entry.primeBases)
+    ) {
+      best = { ...best, confidence: UNREAD_BASE_CONFIDENCE, score: UNREAD_BASE_CONFIDENCE * 100 };
+    }
     ranked.push({
       item: { ...entry.item, confidence: Number(best.confidence.toFixed(3)) },
       confidence: best.confidence,
@@ -253,8 +338,10 @@ export function rankKoRewardCandidates<T>(
   const top = ranked[0];
   if (!top || (top.mode === "fuzzy" && top.confidence < STRUCTURAL_CONFIDENCE)) {
     const covered = matchCoveredName(read, index);
-    // Only a second opinion: the split must agree with the whole-name ranking.
-    if (covered && top?.entry === covered) {
+    // Only a second opinion: the split must agree with the whole-name ranking, where
+    // short non-prime names (Vome) that the slot scan never takes fuzzily don't count.
+    const rival = ranked.find((candidate) => candidate.entry.primeBases.length > 0);
+    if (covered && rival?.entry === covered) {
       const others = ranked.filter((candidate) => candidate.entry !== covered);
       ranked.splice(0, ranked.length, {
         item: { ...covered.item, confidence: STRUCTURAL_CONFIDENCE },

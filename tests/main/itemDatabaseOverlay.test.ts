@@ -1,11 +1,12 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-// None of these uniqueNames are in the bundled export.
-const SHOCK_COILS = "/Lotus/Upgrades/Mods/Pistol/Event/Nightwave/NightwaveLasGooPistolAugmentMod";
-const LITH_B12 = "/Lotus/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultAGold";
+// Made-up uniqueNames: real new items reach the bundled export with a later
+// package release and would no longer exercise the gap-fill.
+const SHOCK_COILS = "/Lotus/Upgrades/Mods/Pistol/Event/Nightwave/TestOnlyGapFillPistolMod";
+const LITH_B12 = "/Lotus/Types/Game/Projections/T1VoidProjectionTestOnlyGapFillGold";
 const LITH_BASE = "/Lotus/Types/Game/Projections/T1VoidProjection";
-const NEW_BLUEPRINT = "/Lotus/Types/Recipes/Components/SurgeEximusBallBlueprint";
-const NEW_RESULT = "/Lotus/Types/Items/Gameplay/Eximus/SurgeEximusBall";
+const NEW_BLUEPRINT = "/Lotus/Types/Recipes/Components/TestOnlyGapFillBallBlueprint";
+const NEW_RESULT = "/Lotus/Types/Items/Gameplay/Eximus/TestOnlyGapFillBall";
 
 vi.mock("../../services/publicExportSource", () => ({
   loadOverlayFromDisk: () => null,

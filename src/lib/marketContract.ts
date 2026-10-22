@@ -338,15 +338,18 @@ function weaponLabelBySlug(slug: string, labels: Readonly<Record<string, string>
 }
 
 /** The contract title with its weapon in the game language; `labels` is keyed by
- *  lowercased English weapon name. Anything that does not line up stays English. */
+ *  lowercased English weapon name, `rivenWord` translates a plain "Riven" after it.
+ *  Anything that does not line up stays English. */
 export function contractTitleLabel(
   contract: Pick<WfmContract, "itemName" | "weaponUrlName">,
   labels: Readonly<Record<string, string>>,
+  rivenWord?: string,
 ): string {
   const slug = contract.weaponUrlName;
   const label = slug ? weaponLabelBySlug(slug, labels) : null;
   if (!slug || !label) return contract.itemName;
   const english = titleFromSlug(slug);
   if (!contract.itemName.toLowerCase().startsWith(english.toLowerCase())) return contract.itemName;
-  return label + contract.itemName.slice(english.length);
+  const rest = contract.itemName.slice(english.length);
+  return label + (rivenWord && rest.trim().toLowerCase() === "riven" ? ` ${rivenWord}` : rest);
 }

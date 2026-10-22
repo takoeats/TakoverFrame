@@ -325,12 +325,20 @@ export function createOverlayScanController(options: OverlayScanControllerOption
   let eelogTriggerAt = 0;
   let rewardUiSignalLoggedAt = 0;
   let rewardScreenClosedAt = 0;
+  let rewardUiSignalAt = 0;
+  let lastCaptureAt = 0;
+  let emptyScanTriggerAt = 0;
+  let lateCardsScanTriggerAt = 0;
 
-  // "ProjectionRewardChoice.lua: Missing icon data!" fires while the reward
-  // cards render. Logged only: a tester log then shows how late the game drew them.
+  // "ProjectionRewardChoice.lua: Missing icon data!" fires while the reward cards
+  // render. Logged, so a tester log shows how late the game drew them, and after
+  // a scan that found no cards it scans again: the cards can draw past the retries.
   function notifyRewardUiReady(): void {
+    if (eelogTriggerAt <= 0) return;
+    rewardUiSignalAt = Date.now();
+    scanLateCards();
     const sinceTrigger = Date.now() - eelogTriggerAt;
-    if (eelogTriggerAt <= 0 || sinceTrigger > RENDER_SIGNAL_LOG_WINDOW_MS) return;
+    if (sinceTrigger > RENDER_SIGNAL_LOG_WINDOW_MS) return;
     // The game repeats the line while the cards draw; the first signal of a
     // reward screen is the one that dates the render.
     if (rewardUiSignalLoggedAt === eelogTriggerAt) return;
@@ -338,13 +346,29 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     log.info(`[Trigger] reward UI render signal ${sinceTrigger}ms after the trigger`);
   }
 
+  function voteWindowMs(): number {
+    return ctx.activeFissureTier === "omnia" ? OMNIA_REWARD_VOTE_WINDOW_MS : REWARD_VOTE_WINDOW_MS;
+  }
+
+  // Once per screen, and only for a signal no capture has seen past: the
+  // picker reuses the script, and a full read leaves nothing to find.
+  function scanLateCards(): void {
+    if (rewardScanInFlight || rewardScreenClosedAt) return;
+    if (emptyScanTriggerAt !== eelogTriggerAt || lateCardsScanTriggerAt === eelogTriggerAt) return;
+    if (rewardUiSignalAt <= lastCaptureAt) return;
+    const sinceTrigger = rewardUiSignalAt - eelogTriggerAt;
+    if (sinceTrigger > voteWindowMs()) return;
+    lateCardsScanTriggerAt = eelogTriggerAt;
+    log.info(`[Trigger] reward cards drawn ${sinceTrigger}ms after the trigger - scanning again`);
+    windows.clearOverlayAutoHideTimer();
+    void dispatchRewardScan("eelog", 0, true);
+  }
+
   function rewardSuccessAutoHideDelay(source: string): number {
     if (source !== "eelog" || !eelogTriggerAt) return OVERLAY_AUTO_HIDE_SUCCESS_MS;
     // Screen already closed while the scan ran - show the minimum and go.
     if (rewardScreenClosedAt) return REWARD_MIN_VISIBLE_MS;
-    const voteWindowMs =
-      ctx.activeFissureTier === "omnia" ? OMNIA_REWARD_VOTE_WINDOW_MS : REWARD_VOTE_WINDOW_MS;
-    return Math.max(REWARD_MIN_VISIBLE_MS, eelogTriggerAt + voteWindowMs - Date.now());
+    return Math.max(REWARD_MIN_VISIBLE_MS, eelogTriggerAt + voteWindowMs() - Date.now());
   }
 
   // Close after the reading floor. Only the first close belongs to this crack because
@@ -375,6 +399,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
+      lastCaptureAt = Date.now();
 
       let result: RewardScanResult | null | undefined;
       try {
@@ -481,7 +506,11 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     };
   }
 
-  async function dispatchRewardScan(source: string, stalenessMs = 0): Promise<void> {
+  async function dispatchRewardScan(
+    source: string,
+    stalenessMs = 0,
+    lateCards = false,
+  ): Promise<void> {
     if (rewardScanInFlight) {
       log.info(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
       return;
@@ -490,7 +519,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     rewardScanInFlight = true;
     // Backdate by the log flush lag so the auto-hide tracks when the reward
     // screen actually appeared, not when the line finally reached us.
-    if (source === "eelog") {
+    if (source === "eelog" && !lateCards) {
       eelogTriggerAt = Date.now() - stalenessMs;
       rewardScreenClosedAt = 0;
     }
@@ -527,7 +556,8 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       if (source === "eelog") {
         // Measured from the trigger, so the lazy file flush and the status
         // refresh above both count against the delay instead of extending it.
-        await sleep(Math.max(0, eelogTriggerAt + EELOG_REWARD_SCAN_DELAY_MS - Date.now()));
+        const drawnAt = lateCards ? rewardUiSignalAt : eelogTriggerAt;
+        await sleep(Math.max(0, drawnAt + EELOG_REWARD_SCAN_DELAY_MS - Date.now()));
       }
 
       const result = await runRewardScanWithRetries(source);
@@ -554,6 +584,10 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         windows.sendOverlayEvent(RELIC_REWARD_ITEMS, payload);
         windows.scheduleOverlayAutoHide(autoHideMs);
       };
+
+      if (source === "eelog" && items.length === 0 && !result?.partial) {
+        emptyScanTriggerAt = eelogTriggerAt;
+      }
 
       if (result?.partial) {
         log.warn(
@@ -615,6 +649,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     } finally {
       rewardScanInFlight = false;
     }
+    if (source === "eelog") scanLateCards();
   }
 
   function onRelicRewardTrigger(source = "manual", stalenessMs = 0): void {

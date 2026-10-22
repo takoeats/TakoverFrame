@@ -48,7 +48,7 @@
   }
 
   $: statsPreview = contractStatsPreview(contract, $rivenStatNames);
-  $: title = contractTitleLabel(contract, $rivenWeaponLabels);
+  $: title = contractTitleLabel(contract, $rivenWeaponLabels, $tr("rivens.type.riven"));
   $: badge = $tr(contractBadgeKey(contract));
   $: badgeClass = contract.isDirectSell ? "bg-warning-bg text-warning" : "bg-info-bg text-info";
   $: masteryLabel = contract.masteryLevel != null ? `MR${contract.masteryLevel}` : "MR-";

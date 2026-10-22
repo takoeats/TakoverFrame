@@ -96,6 +96,7 @@
   import IncarnonTracker from "../components/incarnon/IncarnonTracker.svelte";
   import { parseArchonShards, summarizeArchonShards } from "../lib/inventory/archonShards.js";
   import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
+  import { masteryCategoryLabel } from "../lib/masteryCategories.js";
   import type { MasteryCategoryStats, ProgressPair } from "../types/inventory.js";
   import type { FoundryState } from "../types/filters.js";
 
@@ -607,7 +608,7 @@
   const RING_C = 2 * Math.PI * RING_R;
 
   $: categoryTabs = (() => {
-    const tabs = categories.map((cat) => ({ key: cat, label: cat }));
+    const tabs = categories.map((cat) => ({ key: cat, label: masteryCategoryLabel(cat, $tr) }));
     const setsTab = { key: INCOMPLETE_SETS_TAB, label: $tr("mastery.incompleteSets") };
     const miscAt = tabs.findIndex((tab) => tab.key.toLowerCase() === "misc");
     tabs.splice(miscAt >= 0 ? miscAt : tabs.length, 0, setsTab);
@@ -765,7 +766,7 @@
                 {#each categories as cat}
                   {@const cs = stats.byCategory[cat]}
                   <MasteryBreakdownRow
-                    label={cat}
+                    label={masteryCategoryLabel(cat, $tr)}
                     done={cs.mastered}
                     total={cs.total}
                     inProgress={cs.inProgress}
@@ -1022,7 +1023,7 @@
                     <div class="item-body">
                       <span class="item-name">{itemLabel(item)}</span>
                       <span class="item-type"
-                        >{item.category}{item.masteryReq
+                        >{masteryCategoryLabel(item.category, $tr)}{item.masteryReq
                           ? ` · ${$tr("rivens.mr", { level: item.masteryReq })}`
                           : ""}</span
                       >

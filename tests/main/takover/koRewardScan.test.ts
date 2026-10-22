@@ -92,6 +92,45 @@ describe("Korean reward scan wiring", () => {
     }
   });
 
+  it("names a two-line part whose base end the item icon also covers", () => {
+    // Real 1440p reads: the icon took the base's last syllable along with the Prime word.
+    const cases: Array<[string, string]> = [
+      ["보루 갱 섀시 설계도", "Voruna Prime Chassis Blueprint"],
+      ["자이 님 섀시 설계도", "Gyre Prime Chassis Blueprint"],
+      ["자이쑤 갱 섀시 설계도", "Gyre Prime Chassis Blueprint"],
+      ["칼리빈 갱 새시", "Caliban Prime Chassis Blueprint"],
+    ];
+    for (const [read, name] of cases) {
+      const [best] = rankKoreanRewardCandidates(read, rewards, 4);
+      expect(best.item?.name, read).toBe(name);
+      expect(best.confidence, read).toBeGreaterThanOrEqual(FUZZY_GATE);
+    }
+  });
+
+  it("does not name a part whose words left no trace", () => {
+    // A real read of Caliban Prime Chassis Blueprint: the Blueprint alone also fits.
+    const [best] = rankKoreanRewardCandidates("칼리빈 설계도", rewards, 4);
+    expect(best.confidence).toBeLessThan(FUZZY_GATE);
+  });
+
+  // The slot scan rescues a fuzzy read from here up to the gate when a slot is empty.
+  const NEAR_MISS_FLOOR = 0.8;
+
+  it("keeps a read that lost the base out of the near-miss rescue", () => {
+    // Real reads: Valkyr Prime Blueprint (taken for Bo), Larkspur Prime Blueprint
+    // (Reaper) and Steflos Prime Receiver, which the reward list lacked (Lex).
+    for (const read of ["로 프라임 설 도", "근 결스퍼 프라임 설계도", "스테플로스 프라임 리시버"]) {
+      const [best] = rankKoreanRewardCandidates(read, rewards, 4);
+      expect(best?.confidence ?? 0, read).toBeLessThan(NEAR_MISS_FLOOR);
+    }
+  });
+
+  it("keeps a near miss whose base was read", () => {
+    const [best] = rankKoreanRewardCandidates("0뢸리 프라임 설계도", rewards, 4);
+    expect(best.item?.name).toBe("Yareli Prime Blueprint");
+    expect(best.confidence).toBeGreaterThanOrEqual(NEAR_MISS_FLOOR);
+  });
+
   it("does not guess a covered name when the base or the part is ambiguous", () => {
     // A two-syllable base fits Frost as well as Protea; a base alone names no part.
     for (const read of ["프로 『임 새시 설계도", "프로티아 『임"]) {

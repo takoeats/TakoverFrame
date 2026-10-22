@@ -14,6 +14,7 @@
   } from "../../lib/masteryRoadmap.js";
   import { itemDb } from "../../stores/data.js";
   import type { MasteryRoadmap, MasteryRoadmapRecommendation } from "../../lib/masteryRoadmap.js";
+  import { masteryCategoryLabel } from "../../lib/masteryCategories.js";
 
   type RoadmapMode = "easy" | "relics" | "platinum";
   type RoadmapSort = "recommended" | "xp" | "price";
@@ -176,7 +177,7 @@
           <select class="shared-filter-select" bind:value={category}>
             <option value="all">{$tr("common.all")}</option>
             {#each categories as option}
-              <option value={option}>{option}</option>
+              <option value={option}>{masteryCategoryLabel(option, $tr)}</option>
             {/each}
           </select>
         </label>

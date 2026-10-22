@@ -37,6 +37,7 @@
   import { persistedString, readStorage, writeStorage } from "../lib/persistence.js";
   import {
     chainBuildableBlueprints,
+    EQUIPMENT_CATEGORY_LABEL_KEYS,
     EQUIPMENT_CATEGORY_ORDER,
     isFoundryBuildClaimable,
     isFoundryRecipeReady,
@@ -90,10 +91,9 @@
     { key: "all", labelKey: "common.all" },
     { key: "status:in-progress", labelKey: "common.inProgress" },
   ];
-  // Categories are data values, not UI copy, so they stay untranslated.
   const CATEGORY_FILTERS = EQUIPMENT_CATEGORY_ORDER.map((cat) => ({
     key: `cat:${cat}` as FilterKey,
-    label: cat,
+    labelKey: EQUIPMENT_CATEGORY_LABEL_KEYS[cat],
   }));
   // Must precede the persistedString below, which drops this retired key from the store.
   const retiredReadyTab = readStorage(FILTER_KEY) === "status:ready" && claimReadyTabMigration();
@@ -107,8 +107,10 @@
     writeStorage(FILTER_KEY, "all");
   }
   $: foundryFilterTabs = [
-    ...STATUS_FILTERS.map(({ key, labelKey }) => ({ key, label: $tr(labelKey) })),
-    ...CATEGORY_FILTERS,
+    ...[...STATUS_FILTERS, ...CATEGORY_FILTERS].map(({ key, labelKey }) => ({
+      key,
+      label: $tr(labelKey),
+    })),
   ];
   const foundryFilters = sharedFilters("foundry");
   $: foundrySortOptions = [

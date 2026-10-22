@@ -7,6 +7,7 @@ import type {
   RecipeIngredient,
   Resource,
 } from "../../types/inventory.js";
+import type { MessageKey } from "../i18n.js";
 import {
   MODULAR_PART_PATH,
   PET_PART_PATH,
@@ -47,6 +48,20 @@ export const EQUIPMENT_CATEGORY_ORDER = [
   "Modular",
   "Misc",
 ];
+
+/** Display labels for EQUIPMENT_CATEGORY_ORDER; the category values stay English keys. */
+export const EQUIPMENT_CATEGORY_LABEL_KEYS: Record<string, MessageKey> = {
+  Warframe: "equipment.category.warframe",
+  Primary: "equipment.category.primary",
+  Secondary: "equipment.category.secondary",
+  Melee: "equipment.category.melee",
+  Archwing: "equipment.category.archwing",
+  Companion: "equipment.category.companion",
+  Appearance: "equipment.category.appearance",
+  Gear: "equipment.category.gear",
+  Modular: "equipment.category.modular",
+  Misc: "equipment.category.misc",
+};
 
 // Exported because the Full Sets category chips bucket sets the same way.
 // Component blueprints inherit their parent's category because their own raw

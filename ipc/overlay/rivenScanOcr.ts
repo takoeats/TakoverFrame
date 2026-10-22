@@ -24,6 +24,8 @@ import {
   type RivenStat,
 } from "./rivenScanText";
 import { loadSharp } from "../../services/sharpRuntime";
+import { isKoreanClient } from "../../services/takover/koLocale";
+import { recognizeKoreanStatArea } from "../../services/takover/koRivenScan";
 
 const log = withScope("rivenScan");
 export const MIN_ACCEPTABLE_RIVEN_STATS = 2;
@@ -205,7 +207,7 @@ export async function recognizeRivenCardStats(
         .toBuffer({ resolveWithObject: true });
 
       const ocrStart = Date.now();
-      const ocrResult = await recognizeStatArea(
+      const ocrResult = await (isKoreanClient() ? recognizeKoreanStatArea : recognizeStatArea)(
         rgbaBuf as Buffer,
         rgbaInfo.width as number,
         rgbaInfo.height as number,
