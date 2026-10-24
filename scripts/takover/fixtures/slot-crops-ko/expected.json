@@ -1,5 +1,5 @@
 {
-  "source": "2560x1440 Korean client, interface scale 100%, 4-player void fissure rewards (2026-10-03). Item-name strips only. Unprefixed: first screenshot (build-ko-screens.cjs uses these). s2_: second screenshot (Lavos two-line name over helmet art). s3_: strips the app logged in game (Protea two-line name under part art).",
+  "source": "2560x1440 Korean client, interface scale 100%, 4-player void fissure rewards (2026-10-03). Item-name strips only. Unprefixed: first screenshot (build-ko-screens.cjs uses these). s2_: second screenshot (Lavos two-line name over helmet art). s3_: strips the app logged in game (Protea two-line name under part art). s4_/s5_: app-logged strips (2026-10-24) the colour reads missed: Dethcube's first line under art, and Citrine Prime before it had a Korean name; the gold mask reads both. s6_: Silva & Aegis Prime Hilt (2026-10-24), whose short second line Windows OCR drops unless laid beside the first.",
   "frame": {
     "width": 2559,
     "height": 1439,
@@ -53,6 +53,18 @@
     "s3_4_players_slot3_title_1603x551_312x58.png": {
       "ko": "프로티아 프라임 섀시 설계도",
       "expected": "Protea Prime Chassis Blueprint"
+    },
+    "s4_4_players_slot0_title_627x551_312x58.png": {
+      "ko": "데스큐브 프라임 카라페이스",
+      "expected": "Dethcube Prime Carapace"
+    },
+    "s5_4_players_slot1_title_952x551_312x58.png": {
+      "ko": "시트린 프라임 섀시 설계도",
+      "expected": "Citrine Prime Chassis Blueprint"
+    },
+    "s6_4_players_slot0_title_627x551_312x58.png": {
+      "ko": "실바 & 이지스 프라임 힐트",
+      "expected": "Silva & Aegis Prime Hilt"
     }
   }
 }

@@ -65,8 +65,10 @@ try {
     # Try English first - Warframe's riven stats are always in English
     # regardless of the user's game language setting.  Using the English OCR
     # model gives the best recognition accuracy for stat names.
-    $lang   = [Windows.Globalization.Language]::new($Lang)
-    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang)
+    # Not $lang: PowerShell names are case-insensitive, so that is the [string]$Lang
+    # parameter and the Language object would be cast back to a string.
+    $ocrLanguage = [Windows.Globalization.Language]::new($Lang)
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($ocrLanguage)
     if ($null -eq $engine) {
         # Fallback: use system language if the requested pack is unavailable
         $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()

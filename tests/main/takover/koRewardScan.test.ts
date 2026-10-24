@@ -117,9 +117,8 @@ describe("Korean reward scan wiring", () => {
   const NEAR_MISS_FLOOR = 0.8;
 
   it("keeps a read that lost the base out of the near-miss rescue", () => {
-    // Real reads: Valkyr Prime Blueprint (taken for Bo), Larkspur Prime Blueprint
-    // (Reaper) and Steflos Prime Receiver, which the reward list lacked (Lex).
-    for (const read of ["로 프라임 설 도", "근 결스퍼 프라임 설계도", "스테플로스 프라임 리시버"]) {
+    // Real reads: Valkyr Prime Blueprint (taken for Bo) and Larkspur Prime Blueprint (Reaper).
+    for (const read of ["로 프라임 설 도", "근 결스퍼 프라임 설계도"]) {
       const [best] = rankKoreanRewardCandidates(read, rewards, 4);
       expect(best?.confidence ?? 0, read).toBeLessThan(NEAR_MISS_FLOOR);
     }
@@ -136,6 +135,30 @@ describe("Korean reward scan wiring", () => {
     for (const read of ["프로 『임 새시 설계도", "프로티아 『임"]) {
       const [best] = rankKoreanRewardCandidates(read, rewards, 4);
       expect(best?.confidence ?? 0, read).toBeLessThan(FUZZY_GATE);
+    }
+  });
+
+  it("names primes newer than the DE dictionary from their base and other primes", () => {
+    expect(koreanRewardNames(reward("Citrine Prime Chassis Blueprint"))).toEqual([
+      "시트린 프라임 섀시 설계도",
+      "시트린 프라임 섀시",
+    ]);
+    expect(koreanRewardNames(reward("Corufell Prime Blueprint"))).toEqual(["코루펠 프라임 설계도"]);
+  });
+
+  it("matches real reads of those primes against the full reward list", () => {
+    // 1440p strips; the two-line Citrine read lost the art-covered words, the gold mask kept them.
+    const cases: Array<[string, string]> = [
+      ["시트란 갱 섀시 설계도", "Citrine Prime Chassis Blueprint"],
+      ["시트란• 프라임 새시 설계도", "Citrine Prime Chassis Blueprint"],
+      ["데스큐브 프라임 카라페이스", "Dethcube Prime Carapace"],
+      // Once taken for Lex, while the reward had no Korean name.
+      ["스테플로스 프라임 리시버", "Steflos Prime Receiver"],
+    ];
+    for (const [read, name] of cases) {
+      const [best] = rankKoreanRewardCandidates(read, rewards, 4);
+      expect(best.item?.name, read).toBe(name);
+      expect(best.confidence, read).toBeGreaterThanOrEqual(FUZZY_GATE);
     }
   });
 
@@ -157,7 +180,14 @@ describe("Korean reward scan wiring", () => {
 
   it("reads the count the slot strip welds onto the name", () => {
     // Real slot-strip reads of the same card: X as U+2179 or ")(", no space.
-    for (const read of ["2ⅹ포르마 설계도", "2)(포르마 설계도", "2×포르마 설계도"]) {
+    // The gold-masked reads lead with a mark from the card border.
+    for (const read of [
+      "2ⅹ포르마 설계도",
+      "2)(포르마 설계도",
+      "2×포르마 설계도",
+      "•2)(포르마 설계도",
+      "『2)(포르마 설계도",
+    ]) {
       expect(normalizeQuantityPrefix(read, read), read).toBe("2X 포르마 설계도");
     }
   });

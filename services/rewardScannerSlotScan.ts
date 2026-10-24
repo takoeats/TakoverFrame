@@ -19,7 +19,7 @@ import { yieldToEventLoop } from "./rewardScannerUtils";
 import { isKoreanRewardScan, keepsKoreanOcrToken } from "./takover/koLocale";
 import { rankKoreanRewardCandidates, normalizeQuantityPrefix } from "./takover/koRewardScan";
 import { logKoreanRewardScan, READ_SEPARATOR } from "./takover/koScanLog";
-import { readKoreanStripInColor } from "./takover/koStripReads";
+import { KOREAN_STRIP_READS, readKoreanStripInColor } from "./takover/koStripReads";
 
 const log = withScope("rewardScanner");
 
@@ -339,7 +339,8 @@ async function readSlotTitle(
   ]);
   if (options.stats) {
     options.stats.ocrMs += Date.now() - ocrStartedAt;
-    options.stats.ocrReads += (useWindows ? (korean ? 5 : 3) : 0) + (useOnnx ? 1 : 0);
+    options.stats.ocrReads +=
+      (useWindows ? (korean ? 3 + KOREAN_STRIP_READS : 3) : 0) + (useOnnx ? 1 : 0);
   }
 
   const joined = joinRewardLines(regionTexts[0], regionTexts[1]);

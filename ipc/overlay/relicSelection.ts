@@ -24,6 +24,7 @@ import { aggregateComponentOwnership } from "../../config/shared/componentOwners
 import { ownedComponentCount } from "../../config/shared/componentNames";
 import { withoutFoundryPending } from "../../config/shared/foundryPending";
 import * as itemDatabase from "../../services/itemDatabase";
+import { rewardDisplayName } from "../../services/takover/overlayNames";
 import { squadOnlyPush } from "../../services/takover/overlaySquad";
 
 const RECOMMENDATION_SQUAD_SIZE = 4;
@@ -675,10 +676,12 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         const resolved = itemDatabase.lookupItemByNameOrSlug(reward.name, reward.urlName);
         const uniqueName = resolved?.uniqueName || reward.uniqueName;
         const item = resolved?.item || (uniqueName ? itemDatabase.lookupItem(uniqueName) : null);
+        const name = reward.name || item?.name || reward.urlName || "";
         return {
           rarity: reward.rarity,
           chance: reward.chance,
-          name: reward.name || item?.name || reward.urlName || "",
+          name,
+          ...rewardDisplayName(uniqueName, name),
           imageUrl: reward.imageUrl || item?.imageUrl || null,
           ownedCount: owned && uniqueName ? ownedComponentCount(uniqueName, owned) : null,
         };

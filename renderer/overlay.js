@@ -170,7 +170,7 @@ function renderSlotValues(container, price, ducats) {
 }
 
 function partTooltip(part) {
-  const name = part.name || t("overlay.reward.partFallback");
+  const name = part.displayName || part.name || t("overlay.reward.partFallback");
   const counts = `${formatCount(part.ownedCount)}/${formatCount(part.requiredCount)}`;
   const building = part.building === true ? ` ${t("overlay.reward.partInFoundry")}` : "";
   const reward = part.isReward ? ` ${t("overlay.reward.partIsReward")}` : "";
@@ -206,7 +206,7 @@ function appendSetParts(container, parts) {
     } else {
       const fallback = document.createElement("span");
       fallback.className = "slot-set-part-fallback";
-      fallback.textContent = String(part.name || "?")
+      fallback.textContent = String(part.displayName || part.name || "?")
         .charAt(0)
         .toUpperCase();
       iconBox.appendChild(fallback);
@@ -286,7 +286,7 @@ function renderSlot(index) {
   }
 
   slotEl.classList.add("has-item");
-  nameEl.textContent = item.name;
+  nameEl.textContent = item.displayName || item.name;
   nameEl.className = "slot-name";
   rarityEl.textContent = rarityLabel(item.rarity);
   rarityEl.className = `slot-rarity ${rarityClass(item.rarity)}`;
@@ -356,7 +356,8 @@ function updateBestPick() {
   if (bestIndex >= 0) {
     slotElement(bestIndex).classList.add("best-slot");
     const name = document.createElement("span");
-    name.textContent = `${slotState[bestIndex].item.name} - `;
+    const best = slotState[bestIndex].item;
+    name.textContent = `${best.displayName || best.name} - `;
     bestEl.appendChild(name);
     appendCurrencyValue(
       bestEl,
@@ -597,7 +598,7 @@ function renderPlannerCards() {
       const name = document.createElement("span");
       name.className = "plan-reward-name reward-field-hidden";
       name.dataset.rewardField = `reward${index}Name`;
-      name.textContent = reward.name || "-";
+      name.textContent = reward.displayName || reward.name || "-";
       name.title = name.textContent;
       const chance = document.createElement("span");
       chance.className = "plan-reward-chance reward-field-hidden";

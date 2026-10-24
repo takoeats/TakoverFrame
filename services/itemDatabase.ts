@@ -14,6 +14,7 @@ import { WIKI_ITEM_ART } from "../config/shared/wikiItemArt";
 import { WIKI_MOD_ART, WIKI_MOD_ART_BY_NAME } from "../config/shared/wikiModArt";
 import { readPepDict, readPepExport, readWfcdItems, type WfcdItem } from "./bundledGameData";
 import { getGameLocale, isLocalizingNames, localizeName } from "./gameLocale";
+import { composeKeylessPrimeName } from "./takover/primeNameFallback";
 import * as publicExportSource from "./publicExportSource";
 import { correctedDropRarity } from "./relicRarity";
 import { withScope } from "./logger";
@@ -1059,10 +1060,13 @@ function localizeItemName(
 ): string {
   if (nameKey) return localizeName(nameKey, english);
   const result = itemsByUniqueName[resultTypeByBlueprint[uniqueName]];
-  if (!result) return english;
+  if (!result) return composeKeylessPrimeName(itemsByUniqueName, english) ?? english;
   return localizeName(BLUEPRINT_PATTERN_KEY, BLUEPRINT_PATTERN_EN).replace(
     "|ITEM|",
-    localizeName(result.nameKey, result.name),
+    localizeName(
+      result.nameKey,
+      composeKeylessPrimeName(itemsByUniqueName, result.name) ?? result.name,
+    ),
   );
 }
 

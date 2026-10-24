@@ -16,6 +16,7 @@ import { computeMasteryProgress } from "../../services/masteryHelper";
 import { getWindowsOcrHealth } from "../../services/ocrServer";
 import { getLinuxCaptureFailure } from "../../services/linuxStreamCapture";
 import { sleep } from "../../services/sleep";
+import { partDisplayName, rewardDisplayName } from "../../services/takover/overlayNames";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
@@ -74,6 +75,7 @@ type RewardItem = {
 
 type SetPartProgress = {
   name: string;
+  displayName?: string;
   imageUrl: string | null;
   ownedCount: number;
   requiredCount: number;
@@ -168,6 +170,7 @@ function setProgress(
   ownedCounts: Map<string, number>,
   pending: Set<string>,
   rewardUniqueName: string | null,
+  parentUniqueName: string | null = null,
 ): { owned: number; required: number; completeSets: number; parts: SetPartProgress[] } | null {
   if (!parent || !Array.isArray(parent.components) || parent.components.length === 0) return null;
   const rewardAliases = rewardUniqueName ? componentUniqueNameAliases(rewardUniqueName) : [];
@@ -187,6 +190,12 @@ function setProgress(
     const componentEntry = itemDatabase.lookupItem(component.uniqueName);
     parts.push({
       name: component.name || componentEntry?.name || "Part",
+      ...partDisplayName(
+        parentUniqueName,
+        parent.name,
+        component.uniqueName,
+        componentEntry?.name || component.name || "",
+      ),
       imageUrl: componentEntry?.imageUrl || null,
       ownedCount: count,
       requiredCount: needed,
@@ -247,7 +256,7 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
     const parentName = parent?.name || null;
     const partRequiredCount = componentRequiredCount(parent, uniqueName);
     const partOwnedCount = ownedComponentCount(uniqueName, ownedCounts);
-    const progress = setProgress(parent, ownedCounts, pending, uniqueName);
+    const progress = setProgress(parent, ownedCounts, pending, uniqueName, parentUniqueName);
     // Forma Blueprint builds into Forma, which is no set: warframe.market has no
     // forma_set, so a chip for it could only ever wait for a price.
     const setName =
@@ -268,6 +277,7 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
     return {
       ...rest,
       ...(uniqueName ? { uniqueName } : {}),
+      ...rewardDisplayName(uniqueName, String(item.name || "")),
       ducats,
       partOwnedCount,
       partRequiredCount,

@@ -43,8 +43,9 @@ export function koreanRewardNames(item: SortedItem): string[] {
 
 // The card prints the count as "2 X". Korean OCR reads it as two words, which the
 // noise filter drops, or welds it onto the name with the X as a roman numeral or
-// ")(". Either way the single reward's name would win.
-const READ_QUANTITY_RE = /^\s*(\d+)\s*(?:[xX×ⅹⅩ]|\)\()\s*/;
+// ")(". Either way the single reward's name would win. The gold-masked read may
+// lead with a stray mark from the card border.
+const READ_QUANTITY_RE = /^[^\p{L}\p{N}]*(\d+)\s*(?:[xX×ⅹⅩ]|\)\()\s*/u;
 
 /** The cleaned read with the raw read's leading count spelled "2X ", as names are. */
 export function normalizeQuantityPrefix(raw: string, cleaned: string): string {
