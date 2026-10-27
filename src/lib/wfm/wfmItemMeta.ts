@@ -9,15 +9,14 @@ import {
   normalizeDucats,
   toFiniteNumber,
 } from "../../../config/shared/numeric.js";
-import { formatWfmAssetUrl, normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { formatWfmAssetUrl, normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
+import { invoke } from "../ipc.js";
 import { createSingleFlightMap } from "./requestPolicy.js";
-import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
 const MIN_COMPLETE_SNAPSHOT_SET_COUNT = 200;
-const DIRECT_META_FETCH_TIMEOUT_MS = 10_000;
 
 export interface WfmItemMeta {
   slug: string;
@@ -30,6 +29,8 @@ export interface WfmItemMeta {
 
 interface FetchMetaOptions {
   priority?: BackendRequestPriority;
+  /** Spend main's background budget on a direct read; defaults to all but "high". */
+  background?: boolean;
   cacheOnly?: boolean;
 }
 
@@ -77,21 +78,25 @@ type DirectMetaResult =
   | { status: "not_found" }
   | { status: "transient" };
 
-async function fetchDirectMetaBySlug(slug: string): Promise<DirectMetaResult> {
-  const response = await fetchWithTimeout(
-    `https://api.warframe.market/v2/items/${slug}`,
-    DIRECT_META_FETCH_TIMEOUT_MS,
-    { headers: WFM_HEADERS },
-  );
-  if (response.status === 429 || response.status >= 500) {
+async function fetchDirectMetaBySlug(slug: string, background: boolean): Promise<DirectMetaResult> {
+  let response;
+  try {
+    response = await invoke("wfmPublicGet", {
+      lookup: "item",
+      slug,
+      background,
+    });
+  } catch {
     return { status: "transient" };
   }
-  if (!response.ok) {
+  if (response.status === null || response.status === 429 || response.status >= 500) {
+    return { status: "transient" };
+  }
+  if (response.status < 200 || response.status >= 300) {
     return { status: "not_found" };
   }
 
-  const json = (await response.json()) as unknown;
-  const parsed = toMeta(slug, json);
+  const parsed = toMeta(slug, response.body);
   if (!parsed) return { status: "not_found" };
   return { status: "ok", data: parsed };
 }
@@ -165,6 +170,7 @@ export async function fetchWfmItemMetaBySlug(
   if (isWfmExcludedSlug(normalizedSlug)) return null;
 
   const priority = options?.priority || "low";
+  const background = options?.background ?? priority !== "high";
 
   const noDataCachedAt = metaNoDataCache.get(normalizedSlug);
   if (isNoDataCacheFresh(noDataCachedAt)) {
@@ -207,7 +213,7 @@ export async function fetchWfmItemMetaBySlug(
           (backendMeta.ducats == null || (!backendMeta.thumb && !backendMeta.icon));
 
         if (shouldEnrichFromDirect && fallbackAllowed) {
-          const directMeta = await fetchDirectMetaBySlug(normalizedSlug);
+          const directMeta = await fetchDirectMetaBySlug(normalizedSlug, background);
           if (directMeta.status === "ok") {
             metaCache.set(normalizedSlug, directMeta.data);
             metaNoDataCache.delete(normalizedSlug);
@@ -235,7 +241,7 @@ export async function fetchWfmItemMetaBySlug(
         return null;
       }
 
-      const directMeta = await fetchDirectMetaBySlug(normalizedSlug);
+      const directMeta = await fetchDirectMetaBySlug(normalizedSlug, background);
       if (directMeta.status === "ok") {
         metaCache.set(normalizedSlug, directMeta.data);
         metaNoDataCache.delete(normalizedSlug);

@@ -121,7 +121,7 @@
     books = { ...books, [slug]: next };
   }
 
-  async function loadAll(force: boolean): Promise<void> {
+  async function loadAll(force: boolean, background = false): Promise<void> {
     const token = ++generation;
     if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = null;
@@ -139,7 +139,9 @@
         isCancelled: () => token !== generation,
         fetchBook: async ({ rowId }) => {
           if (force) clearOrderBookCache(rowId);
-          const result = await fetchItemOrderBookBySlug(rowId);
+          const result = await fetchItemOrderBookBySlug(rowId, {
+            priority: background ? "background" : "interactive",
+          });
           results[rowId] = result;
           return result.status === "ok" ? { sell: result.data.sell, buy: result.data.buy } : null;
         },
@@ -150,7 +152,8 @@
       },
     );
     if (token !== generation) return;
-    refreshTimer = setTimeout(() => void loadAll(true), AUTO_REFRESH_MS);
+    // The timed refresh nobody asked for spends the background budget.
+    refreshTimer = setTimeout(() => void loadAll(true, true), AUTO_REFRESH_MS);
   }
 
   onMount(() => {

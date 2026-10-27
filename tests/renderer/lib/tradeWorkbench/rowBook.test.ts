@@ -14,7 +14,7 @@ describe("fetchRowBook", () => {
     expect(fetchItemOrderBookBySlug).toHaveBeenCalledWith("axi_a1_relic", {
       rank: null,
       subtype: "radiant",
-      priority: "background",
+      priority: "interactive",
     });
   });
 

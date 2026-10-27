@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type ElectronApplication, type Page } from "@playwright/test";
 
 import {
   closeElectronTestHarness,
@@ -6,6 +6,7 @@ import {
   launchElectronTestHarness,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { stubWfmPublicGet } from "./wfmPublicStub";
 
 // A tradable part gets its slug locally, so the order-book panel opens with no catalogue.
 const BRATON_PRIME_BARREL = "/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeBarrel";
@@ -55,10 +56,10 @@ function backendHistoryRows() {
   });
 }
 
-async function serveStatistics(page: Page, rows: unknown[]): Promise<void> {
-  await page.evaluate((fixture) => {
-    (window as unknown as { marketStatsFixtureRows: unknown[] }).marketStatsFixtureRows = fixture;
-  }, rows);
+async function serveStatistics(app: ElectronApplication, rows: unknown[]): Promise<void> {
+  await stubWfmPublicGet(app, {
+    statistics: { payload: { statistics_closed: { "48hours": [], "90days": rows } } },
+  });
 }
 
 async function openStatistics(page: Page): Promise<void> {
@@ -85,7 +86,6 @@ test.describe("Market statistics rolling year", () => {
         await page.addInitScript((history) => {
           const nativeFetch = window.fetch.bind(window);
           const scope = window as unknown as {
-            marketStatsFixtureRows?: unknown[];
             releaseMarketArchive?: () => void;
           };
           const archiveReady = new Promise<void>((resolve) => {
@@ -108,12 +108,7 @@ test.describe("Market statistics rolling year", () => {
                 json({ ok: true, slug, generatedAt: Date.now(), rows: history }),
               );
             }
-            if (!pathname.endsWith("/statistics")) return nativeFetch(input, init);
-            return json({
-              payload: {
-                statistics_closed: { "48hours": [], "90days": scope.marketStatsFixtureRows ?? [] },
-              },
-            });
+            return nativeFetch(input, init);
           };
         }, backendHistoryRows());
       },
@@ -126,7 +121,7 @@ test.describe("Market statistics rolling year", () => {
 
   test("Latest keeps the days that later 90-day fetches no longer carry", async () => {
     const page = harness!.page;
-    await serveStatistics(page, dailyRows(90, 1));
+    await serveStatistics(harness!.app, dailyRows(90, 1));
     await openStatistics(page);
     const points = page.locator("[data-market-stats-points]");
     await expect(points).toHaveAttribute("data-market-stats-points", "90");
@@ -145,7 +140,7 @@ test.describe("Market statistics rolling year", () => {
     // The next day's window drops the oldest day; the stored year keeps it.
     await page.reload();
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
-    await serveStatistics(page, dailyRows(90, 0));
+    await serveStatistics(harness!.app, dailyRows(90, 0));
     await page.evaluate(() =>
       (window as unknown as { releaseMarketArchive: () => void }).releaseMarketArchive(),
     );

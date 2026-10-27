@@ -5,6 +5,7 @@ import {
   fetchItemOrderBookBySlug,
   resetOrderBookDebugCounters,
 } from "../../../../src/lib/wfm/orderBook.js";
+import { stubWfmPublicGetViaFetch } from "./wfmPublicGetStub.js";
 
 const originalFetch = globalThis.fetch;
 
@@ -43,10 +44,12 @@ beforeEach(() => {
   clearOrderBookCache();
   resetOrderBookDebugCounters();
   vi.restoreAllMocks();
+  stubWfmPublicGetViaFetch();
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   globalThis.fetch = originalFetch;
 });
 
@@ -290,49 +293,16 @@ describe("fetchItemOrderBookBySlug", () => {
     expect(resultA).toEqual(resultB);
   });
 
-  it("settles a stalled direct request at the timeout", async () => {
-    vi.useFakeTimers();
-    globalThis.fetch = vi.fn(
-      (_input: Request | URL | string, init?: Parameters<typeof fetch>[1]) =>
-        new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-        }),
-    ) as unknown as typeof fetch;
+  it("settles a request main reports as unanswered", async () => {
+    // Main owns the transport timeout; what reaches the renderer is a null status.
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("WFM request timeout after 20000ms");
+    }) as unknown as typeof fetch;
 
-    const request = fetchItemOrderBookBySlug("primed_flow");
-    await vi.advanceTimersByTimeAsync(10_000);
-
-    await expect(request).resolves.toEqual({ status: "error", slug: "primed_flow" });
-  });
-
-  it.each(["stalled", "malformed"] as const)("fails a load whose body is %s", async (body) => {
-    vi.useFakeTimers();
-    globalThis.fetch = vi.fn(
-      async (_input: Request | URL | string, init?: Parameters<typeof fetch>[1]) =>
-        new Response(
-          body === "malformed"
-            ? "{not json"
-            : new ReadableStream({
-                start(stream) {
-                  init?.signal?.addEventListener(
-                    "abort",
-                    () => stream.error(new DOMException("aborted", "AbortError")),
-                    { once: true },
-                  );
-                },
-              }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-    ) as unknown as typeof fetch;
-
-    const request = fetchItemOrderBookBySlug("primed_flow");
-    await vi.advanceTimersByTimeAsync(10_000);
-
-    await expect(request).resolves.toEqual({ status: "error", slug: "primed_flow" });
+    await expect(fetchItemOrderBookBySlug("primed_flow")).resolves.toEqual({
+      status: "error",
+      slug: "primed_flow",
+    });
   });
 
   it("keeps a refreshed request owned after the cleared request settles", async () => {
@@ -372,7 +342,7 @@ describe("fetchItemOrderBookBySlug", () => {
 
     expect(first).toEqual({ status: "not_found", slug: "soma_prime_receiver" });
     expect(second).toEqual({ status: "not_found", slug: "soma_prime_receiver" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps rank-filtered cache entries separate", async () => {
@@ -454,36 +424,32 @@ describe("fetchItemOrderBookBySlug", () => {
     ]);
   });
 
-  it("falls back to v1 orders endpoint when v2 endpoint is unavailable", async () => {
-    const fetchMock = vi.fn(async (input: Request | URL | string) => {
-      const url =
-        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (url === "https://api.warframe.market/v2/orders/item/primed_flow") {
-        return new Response("", { status: 403 });
-      }
-      if (url === "https://api.warframe.market/v1/items/primed_flow/orders") {
-        return jsonResponse(200, {
-          payload: {
-            orders: [
-              {
-                order_type: "sell",
-                platinum: 120,
-                quantity: 1,
-                visible: true,
-                user: { ingame_name: "seller-r10", status: "online" },
-              },
-            ],
-          },
-        });
-      }
-
-      throw new Error(`Unexpected URL: ${url}`);
-    });
+  it("reads a v2 miss as not_found without asking the deprecated v1 endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 404 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const result = await fetchItemOrderBookBySlug("primed_flow", { rank: 10 });
 
-    expect(result.status).toBe("ok");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ status: "not_found", slug: "primed_flow" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks main for a background read only when the caller is background", async () => {
+    const publicGet = stubWfmPublicGetViaFetch();
+    globalThis.fetch = vi.fn(async () => orderResponse(80));
+
+    await fetchItemOrderBookBySlug("sweep_item", { priority: "background" });
+    await fetchItemOrderBookBySlug("clicked_item");
+
+    expect(publicGet).toHaveBeenCalledWith({
+      lookup: "orders",
+      slug: "sweep_item",
+      background: true,
+    });
+    expect(publicGet).toHaveBeenCalledWith({
+      lookup: "orders",
+      slug: "clicked_item",
+      background: false,
+    });
   });
 });

@@ -244,6 +244,7 @@ export async function hydrateItemMetrics(
       if (slug) {
         const bySlug = await fetchPriceBySlug(slug, {
           priority: fetchPriority,
+          background: true,
           rank: requestedRank,
           ignoreNoDataCache: bypassNoDataCache,
         });
@@ -260,6 +261,7 @@ export async function hydrateItemMetrics(
       if (!priceResult && allowNameLookup) {
         priceResult = await fetchPriceByName(item.name, lookup, {
           priority: fetchPriority,
+          background: true,
           allowSetFallback: item.inventoryGroup === "full_sets",
           rank: requestedRank,
           ignoreNoDataCache: bypassNoDataCache,
@@ -270,6 +272,7 @@ export async function hydrateItemMetrics(
         if (slug) {
           const unrankedBySlug = await fetchPriceBySlug(slug, {
             priority: fetchPriority,
+            background: true,
             ignoreNoDataCache: bypassNoDataCache,
           });
           if (unrankedBySlug.status === "ok" && unrankedBySlug.median != null) {
@@ -284,6 +287,7 @@ export async function hydrateItemMetrics(
         if (!priceResult && allowNameLookup) {
           priceResult = await fetchPriceByName(item.name, lookup, {
             priority: fetchPriority,
+            background: true,
             allowSetFallback: item.inventoryGroup === "full_sets",
             ignoreNoDataCache: bypassNoDataCache,
           });
@@ -348,6 +352,7 @@ export async function hydrateItemMetrics(
         if (slug) {
           const bySlug = await fetchPriceBySlug(slug, {
             priority: fetchPriority,
+            background: true,
             rank,
             ignoreNoDataCache: bypassNoDataCache,
           });
@@ -363,6 +368,7 @@ export async function hydrateItemMetrics(
         if (!rankResult && allowNameLookup) {
           rankResult = await fetchPriceByName(item.name, lookup, {
             priority: fetchPriority,
+            background: true,
             allowSetFallback: item.inventoryGroup === "full_sets",
             rank,
             ignoreNoDataCache: bypassNoDataCache,
@@ -556,7 +562,10 @@ export async function hydrateItemMetrics(
       (needsMetaFetch || (needsIcon && !lookupHasIcon && !thumb && !icon && !hasMeta));
 
     if (shouldFetchMeta) {
-      const meta = await fetchWfmItemMetaBySlug(slug, { priority: fetchPriority });
+      const meta = await fetchWfmItemMetaBySlug(slug, {
+        priority: fetchPriority,
+        background: true,
+      });
       hasMeta = true;
       if (meta) {
         if (needsMetaFetch) {

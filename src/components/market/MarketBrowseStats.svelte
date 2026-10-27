@@ -2,7 +2,6 @@
   import { SvelteMap } from "svelte/reactivity";
 
   import type { MarketStatPoint } from "../../../config/shared/marketStats.js";
-  import { WFM_HEADERS } from "../../../config/shared/wfm.js";
   import { locale, tr, type LocaleCode } from "../../lib/i18n.js";
   import { invoke } from "../../lib/ipc.js";
   import { fetchBackendPriceHistory } from "../../lib/wfm/priceHistory.js";
@@ -190,14 +189,12 @@
 
   async function fetchStatistics(target: string): Promise<StatBuckets | null> {
     try {
-      const response = await fetch(`https://api.warframe.market/v1/items/${target}/statistics`, {
-        headers: WFM_HEADERS,
-      });
-      if (!response.ok) return null;
-      const body = (await response.json()) as {
+      const response = await invoke("wfmPublicGet", { lookup: "statistics", slug: target });
+      if (response.status !== 200) return null;
+      const body = response.body as {
         payload?: { statistics_closed?: Record<string, unknown> };
-      };
-      const closed = body.payload?.statistics_closed;
+      } | null;
+      const closed = body?.payload?.statistics_closed;
       if (!closed) return null;
       return {
         "48hours": parseEntries(closed["48hours"]),

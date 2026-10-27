@@ -49,6 +49,7 @@ export const WFM_CLOSE_ORDER = "wfm:close-order";
 export const WFM_SET_VISIBLE = "wfm:set-visible";
 export const WFM_SEARCH_ITEMS = "wfm:search-items";
 export const WFM_LOOKUP_ITEM = "wfm:lookup-item-by-slug";
+export const WFM_PUBLIC_GET = "wfm:public-get";
 export const MARKET_STATS_HISTORY_MERGE = "market:stats-history-merge";
 export const WFM_GET_ME = "wfm:get-me";
 export const WFM_SET_STATUS = "wfm:set-status";

@@ -11,31 +11,16 @@ import { normalizeRankFilter as normalizePriceRank } from "../../../config/share
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { WFM_BACKEND_ERROR_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { log } from "../log.js";
-import { normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { normalizeForSlug } from "../../../config/shared/textNormalize.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
-import { createAdaptiveDelayController, createPriorityRequestQueue } from "./requestPolicy.js";
-import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
+import { invoke } from "../ipc.js";
+import { createPriorityRequestQueue } from "./requestPolicy.js";
 
-const BASE_DELAY_MS = 350;
-const MAX_DYNAMIC_DELAY_MS = 1200;
-const DELAY_DECAY_STEP_MS = 5;
-const DELAY_BACKOFF_STEP_MS = 120;
-const DEFAULT_RETRY_AFTER_SECONDS = 30;
-const MIN_429_COOLDOWN_MS = 30_000;
 const MAX_PRICE_QUEUE_DEPTH = 64;
 const PRICE_QUEUE_FULL_ERROR = "WFM_PRICE_QUEUE_FULL";
-const DIRECT_PRICE_FETCH_TIMEOUT_MS = 10_000;
 // When the backend returns an error and direct fallback is not allowed, suppress
 // retries for this duration so a cold/erroring worker doesn't get hammered.
-
-const priceDelay = createAdaptiveDelayController({
-  baseDelayMs: BASE_DELAY_MS,
-  maxDelayMs: MAX_DYNAMIC_DELAY_MS,
-  decayStepMs: DELAY_DECAY_STEP_MS,
-  backoffStepMs: DELAY_BACKOFF_STEP_MS,
-  minRateLimitCooldownMs: MIN_429_COOLDOWN_MS,
-});
 
 type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
 type PriceCacheUpdateStatus = "ok" | "no_data";
@@ -43,6 +28,9 @@ type PriceCacheUpdateListener = (slug: string, status: PriceCacheUpdateStatus) =
 export type RequestPriority = "high" | "normal" | "low";
 interface FetchPriceOptions {
   priority?: RequestPriority;
+  /** Spend main's background budget on a direct read. Defaults to every priority
+   *  but "high"; automatic fills that queue as "high" set it explicitly. */
+  background?: boolean;
   allowSetFallback?: boolean;
   rank?: number | null;
   ignoreNoDataCache?: boolean;
@@ -58,7 +46,6 @@ interface PriceDebugCounters {
   resultOk: number;
   resultNoData: number;
   resultTransient: number;
-  rateLimited: number;
   backendHitOk: number;
   backendHitNoData: number;
   backendError: number;
@@ -74,7 +61,6 @@ const priceDebugCounters: PriceDebugCounters = {
   resultOk: 0,
   resultNoData: 0,
   resultTransient: 0,
-  rateLimited: 0,
   backendHitOk: 0,
   backendHitNoData: 0,
   backendError: 0,
@@ -105,7 +91,6 @@ function bumpCounter(counter: keyof PriceDebugCounters): void {
 const priceQueue = createPriorityRequestQueue<RequestPriority>({
   priorities: ["high", "normal", "low"],
   maxDepth: MAX_PRICE_QUEUE_DEPTH,
-  beforeTask: priceDelay.waitForTurn,
   onDrop: () => bumpCounter("queueDropped"),
   dropError: () => new Error(PRICE_QUEUE_FULL_ERROR),
 });
@@ -171,40 +156,24 @@ function enqueue<T>(fn: () => Promise<T>, priority: RequestPriority = "normal"):
   return priceQueue.enqueue(fn, priority);
 }
 
-async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<StatsResponse> {
+async function fetchStatsJson(
+  slug: string,
+  priority: RequestPriority,
+  background: boolean,
+): Promise<StatsResponse> {
   return enqueue(async () => {
     bumpCounter("httpCalls");
-    const resp = await fetchWithTimeout(
-      `https://api.warframe.market/v1/items/${slug}/statistics`,
-      DIRECT_PRICE_FETCH_TIMEOUT_MS,
-      { headers: WFM_HEADERS },
-    );
-
-    if (resp.status === 429) {
-      bumpCounter("rateLimited");
-      const retryAfter = parseInt(
-        resp.headers.get("retry-after") || `${DEFAULT_RETRY_AFTER_SECONDS}`,
-        10,
-      );
-      priceDelay.noteRateLimited(retryAfter);
-      log.warn(`[WFM] Rate limited (429). Cooling down for ${retryAfter}s.`);
-      return { ok: false, transient: true };
+    // Main owns the 429 gate and retries; a status of null is what outlasted them.
+    const resp = await invoke("wfmPublicGet", {
+      lookup: "statistics",
+      slug,
+      background,
+    });
+    if (resp.status === null) return { ok: false, transient: true };
+    if (resp.status < 200 || resp.status >= 300) {
+      return { ok: false, transient: resp.status >= 500 || resp.status === 408 };
     }
-
-    priceDelay.noteSuccess();
-
-    if (!resp.ok) {
-      return {
-        ok: false,
-        transient: resp.status >= 500 || resp.status === 408,
-      };
-    }
-
-    return {
-      ok: true,
-      transient: false,
-      json: await resp.json(),
-    };
+    return { ok: true, transient: false, json: resp.body };
   }, priority);
 }
 
@@ -212,6 +181,7 @@ async function fetchPriceBySlugInternal(
   slug: string,
   priority: RequestPriority,
   rank: number | null,
+  background: boolean,
 ): Promise<PriceBySlugResult> {
   const cacheKey = rendererPriceCacheKey(slug, rank);
   const backendResult = await fetchBackendPriceBySlug(slug, { rank });
@@ -254,7 +224,7 @@ async function fetchPriceBySlugInternal(
     return { status: "transient", slug, median: null };
   }
 
-  const res = await fetchStatsJson(slug, priority);
+  const res = await fetchStatsJson(slug, priority, background);
   if (!res.ok) {
     if (!res.transient) {
       cacheNoData(cacheKey, slug);
@@ -334,7 +304,8 @@ export async function fetchPriceBySlug(
 
   const requestPromise = (async () => {
     try {
-      return await fetchPriceBySlugInternal(normalizedSlug, priority, rank);
+      const background = options?.background ?? priority !== "high";
+      return await fetchPriceBySlugInternal(normalizedSlug, priority, rank, background);
     } catch (e) {
       log.warn(`[WFM] fetch failed for ${normalizedSlug}:`, e);
       bumpCounter("resultTransient");
@@ -381,6 +352,7 @@ export async function fetchPriceByName(
   for (const trySlug of slugsToTry) {
     const result = await fetchPriceBySlug(trySlug, {
       priority,
+      ...(options?.background !== undefined ? { background: options.background } : {}),
       rank,
       ignoreNoDataCache,
       cacheOnly,

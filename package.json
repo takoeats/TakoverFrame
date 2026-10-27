@@ -1,6 +1,6 @@
 {
   "name": "takoverframe",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Warframe companion for the Korean client: relic reward prices, inventory and warframe.market orders. Fork of WFHelper.",
   "main": ".electron-build/main.js",
   "desktopName": "takoverframe.desktop",

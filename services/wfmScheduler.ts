@@ -19,8 +19,12 @@ export interface WfmSchedulerHealth {
 export const WFM_SCHEDULER_DEFAULTS = {
   /** Sustained global budget across every main-process WFM call. */
   RATE_PER_SECOND: 2.5,
-  /** Tokens a cold burst may spend before the sustained rate binds. */
-  BURST_TOKENS: 5,
+  /** Tokens a cold burst may spend before the sustained rate binds. WFM's
+   *  published limit is 3/s, so a burst above that is a violation, not slack. */
+  BURST_TOKENS: 3,
+  /** Background work also spends from its own bucket at this rate (burst 1), so
+   *  automatic syncs leave most of the budget to whatever a user opens. */
+  BACKGROUND_RATE_PER_SECOND: 1,
   MAX_CONCURRENT: 3,
   /** Background never takes the last slot, so an interactive call waits for
    *  the budget and never for a sweep. */
@@ -98,6 +102,7 @@ interface PendingTask {
 }
 
 let _tokens: number = TUNING.BURST_TOKENS;
+let _backgroundTokens = 1;
 let _lastRefillAt = Date.now();
 let _inFlight = 0;
 let _backgroundInFlight = 0;
@@ -110,8 +115,9 @@ let _pumpTimer: ReturnType<typeof setTimeout> | null = null;
 
 function _refill(now: number): void {
   if (now <= _lastRefillAt) return;
-  const gained = ((now - _lastRefillAt) / 1000) * TUNING.RATE_PER_SECOND;
-  _tokens = Math.min(TUNING.BURST_TOKENS, _tokens + gained);
+  const seconds = (now - _lastRefillAt) / 1000;
+  _tokens = Math.min(TUNING.BURST_TOKENS, _tokens + seconds * TUNING.RATE_PER_SECOND);
+  _backgroundTokens = Math.min(1, _backgroundTokens + seconds * TUNING.BACKGROUND_RATE_PER_SECOND);
   _lastRefillAt = now;
 }
 
@@ -124,8 +130,9 @@ function _nextIndex(): number {
   // Floor of 1: a zero cap would strand background work forever rather than
   // just deprioritising it.
   const backgroundCap = Math.max(1, TUNING.MAX_BACKGROUND_CONCURRENT);
-  if (background >= 0 && _backgroundInFlight < backgroundCap) return background;
-  return -1;
+  if (background < 0 || _backgroundInFlight >= backgroundCap) return -1;
+  if (_pending[background].costsToken && _backgroundTokens < 1) return -1;
+  return background;
 }
 
 function _schedulePump(delayMs: number): void {
@@ -168,17 +175,24 @@ function _pump(): void {
     if (index < 0) break;
     if (_pending[index].costsToken && _tokens < 1) break;
     const [task] = _pending.splice(index, 1);
-    if (task.costsToken) _tokens -= 1;
+    if (task.costsToken) {
+      _tokens -= 1;
+      if (task.priority === "background") _backgroundTokens -= 1;
+    }
     _inFlight++;
     if (task.priority === "background") _backgroundInFlight++;
     task.admit();
   }
 
   if (_pending.length === 0) return;
-  // A concurrency-blocked or background-blocked queue is woken by _release;
-  // only a token-starved one needs a timer.
-  if (_inFlight >= TUNING.MAX_CONCURRENT || _nextIndex() < 0) return;
-  _schedulePump(((1 - _tokens) / TUNING.RATE_PER_SECOND) * 1000);
+  // A concurrency-blocked queue is woken by _release; only a token-starved one
+  // needs a timer. A runnable task left over means the shared bucket ran dry.
+  if (_inFlight >= TUNING.MAX_CONCURRENT) return;
+  if (_nextIndex() >= 0) {
+    _schedulePump(((1 - _tokens) / TUNING.RATE_PER_SECOND) * 1000);
+  } else if (_backgroundTokens < 1) {
+    _schedulePump(((1 - _backgroundTokens) / TUNING.BACKGROUND_RATE_PER_SECOND) * 1000);
+  }
 }
 
 function _acquire(priority: WfmRequestPriority, costsToken: boolean): Promise<void> {
@@ -335,6 +349,7 @@ export const __schedulerTest__ = {
     _pending.length = 0;
     Object.assign(TUNING, WFM_SCHEDULER_DEFAULTS);
     _tokens = TUNING.BURST_TOKENS;
+    _backgroundTokens = 1;
     _lastRefillAt = Date.now();
     _inFlight = 0;
     _backgroundInFlight = 0;

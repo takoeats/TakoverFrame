@@ -19,6 +19,7 @@ import {
   launchElectronTestHarness,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { stubWfmPublicGet } from "./wfmPublicStub";
 
 // Ids must satisfy the IPC validator's 24-hex WFM ObjectId shape.
 function fixtureId(index: number): string {
@@ -217,28 +218,18 @@ test.describe("Market reprice through production IPC", () => {
     harness = await launchElectronTestHarness("wfh-reprice-ipc-", {
       onPage: async (page) => {
         page.on("pageerror", (error) => pageErrors.push(error.message));
-        await page.addInitScript(() => {
-          const originalFetch = window.fetch;
-          window.fetch = async (input, init) => {
-            const url =
-              typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-            if (!url.startsWith("https://api.warframe.market/")) return originalFetch(input, init);
-            return new Response(
-              JSON.stringify({
-                data: [
-                  {
-                    type: "sell",
-                    platinum: 50,
-                    quantity: 10,
-                    user: { ingameName: "Fixture Rival", status: "ingame" },
-                  },
-                ],
-              }),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            );
-          };
-        });
       },
+    });
+    await stubWfmPublicGet(harness.app, {
+      orders: [
+        {
+          type: "sell",
+          platinum: 50,
+          quantity: 10,
+          user: { ingameName: "Fixture Rival", status: "ingame" },
+        },
+      ],
+      item: null,
     });
     await evaluateInMain(harness.app, async ({ app }) => {
       const load = process

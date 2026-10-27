@@ -7,6 +7,7 @@ import {
   setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { stubWfmPublicGet } from "./wfmPublicStub";
 
 test("price edits preserve ranks and variants when item details fail", async () => {
   test.setTimeout(180_000);
@@ -16,27 +17,18 @@ test("price edits preserve ranks and variants when item details fail", async () 
     const { app, page } = harness;
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.addInitScript(() => {
-      const originalFetch = window.fetch;
-      window.fetch = async (input, init) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (!url.startsWith("https://api.warframe.market/")) return originalFetch(input, init);
-        return new Response(
-          JSON.stringify({
-            data: [
-              {
-                type: "sell",
-                subtype: "atragraph",
-                platinum: 150,
-                quantity: 1,
-                user: { ingameName: "Fixture", status: "ingame" },
-              },
-            ],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      };
+    await stubWfmPublicGet(app, {
+      orders: [
+        {
+          type: "sell",
+          subtype: "atragraph",
+          platinum: 150,
+          quantity: 1,
+          user: { ingameName: "Fixture", status: "ingame" },
+        },
+      ],
+      // Item details answer with nothing usable, which is the failure under test.
+      item: null,
     });
     await evaluateInMain(app, ({ app, ipcMain }) => {
       const load = process

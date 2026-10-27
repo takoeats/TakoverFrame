@@ -8,6 +8,7 @@ import {
   setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { patchWfmPublicFixture, stubWfmPublicGet } from "./wfmPublicStub";
 
 const SCULPTURES = [
   ["ayatan_piv_sculpture", "Ayatan Piv Sculpture", "/Lotus/Types/Items/FusionTreasures/OroFusexE"],
@@ -29,91 +30,75 @@ test("Ayatan sculptures list endo per plat across every sculpture and per order"
     const { app, page } = harness;
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.addInitScript(() => {
-      const full = { amberStars: 1, cyanStars: 2 };
-      const books: Record<string, unknown[]> = {
-        ayatan_piv_sculpture: [
-          {
-            type: "sell",
-            platinum: 4,
-            quantity: 1,
-            ...full,
-            user: { ingameName: "PivFull", status: "ingame" },
-          },
-          {
-            type: "sell",
-            platinum: 2,
-            quantity: 3,
-            user: { ingameName: "PivEmpty", status: "ingame" },
-          },
-          {
-            type: "sell",
-            platinum: 3,
-            quantity: 1,
-            ...full,
-            user: { ingameName: "PivOnline", status: "online" },
-          },
-          {
-            type: "sell",
-            platinum: 60,
-            quantity: 12,
-            perTrade: 6,
-            ...full,
-            user: { ingameName: "PivBulk", status: "ingame" },
-          },
-          {
-            type: "buy",
-            platinum: 3,
-            quantity: 1,
-            ...full,
-            user: { ingameName: "PivBuyer", status: "ingame" },
-          },
-        ],
-        ayatan_anasa_sculpture: [
-          {
-            type: "sell",
-            platinum: 7,
-            quantity: 1,
-            amberStars: 2,
-            cyanStars: 2,
-            user: { ingameName: "AnasaFull", status: "ingame" },
-          },
-          {
-            type: "sell",
-            platinum: 5,
-            quantity: 1,
-            amberStars: 2,
-            cyanStars: 2,
-            user: { ingameName: "AnasaAway", status: "offline" },
-          },
-        ],
-        ayatan_ayr_sculpture: [
-          {
-            type: "sell",
-            platinum: 5,
-            quantity: 1,
-            amberStars: 0,
-            cyanStars: 3,
-            user: { ingameName: "AyrFull", status: "ingame" },
-          },
-        ],
-      };
-      const originalFetch = window.fetch;
-      window.fetch = async (input, init) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (!url.startsWith("https://api.warframe.market/")) return originalFetch(input, init);
-        const orders = /\/v2\/orders\/item\/([a-z0-9_]+)/.exec(url);
-        if (orders && (window as Window & { ayatanOffline?: boolean }).ayatanOffline) {
-          return new Response("", { status: 503 });
-        }
-        const data = orders ? (books[orders[1]] ?? []) : { tradingTax: 4000 };
-        return new Response(JSON.stringify({ data }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
-    });
+    const full = { amberStars: 1, cyanStars: 2 };
+    const books: Record<string, unknown[]> = {
+      ayatan_piv_sculpture: [
+        {
+          type: "sell",
+          platinum: 4,
+          quantity: 1,
+          ...full,
+          user: { ingameName: "PivFull", status: "ingame" },
+        },
+        {
+          type: "sell",
+          platinum: 2,
+          quantity: 3,
+          user: { ingameName: "PivEmpty", status: "ingame" },
+        },
+        {
+          type: "sell",
+          platinum: 3,
+          quantity: 1,
+          ...full,
+          user: { ingameName: "PivOnline", status: "online" },
+        },
+        {
+          type: "sell",
+          platinum: 60,
+          quantity: 12,
+          perTrade: 6,
+          ...full,
+          user: { ingameName: "PivBulk", status: "ingame" },
+        },
+        {
+          type: "buy",
+          platinum: 3,
+          quantity: 1,
+          ...full,
+          user: { ingameName: "PivBuyer", status: "ingame" },
+        },
+      ],
+      ayatan_anasa_sculpture: [
+        {
+          type: "sell",
+          platinum: 7,
+          quantity: 1,
+          amberStars: 2,
+          cyanStars: 2,
+          user: { ingameName: "AnasaFull", status: "ingame" },
+        },
+        {
+          type: "sell",
+          platinum: 5,
+          quantity: 1,
+          amberStars: 2,
+          cyanStars: 2,
+          user: { ingameName: "AnasaAway", status: "offline" },
+        },
+      ],
+      ayatan_ayr_sculpture: [
+        {
+          type: "sell",
+          platinum: 5,
+          quantity: 1,
+          amberStars: 0,
+          cyanStars: 3,
+          user: { ingameName: "AyrFull", status: "ingame" },
+        },
+      ],
+    };
+    await stubWfmPublicGet(app, { orders: books, item: { tradingTax: 4000 } });
     await evaluateInMain(
       app,
       ({ ipcMain }, sculptures) => {
@@ -240,10 +225,7 @@ test("Ayatan sculptures list endo per plat across every sculpture and per order"
     expect(await endoPerPlat()).toEqual(["173", "285", "431", "575"]);
 
     // A refresh that fails everywhere keeps the last orders and says how old they are.
-    const setOffline = (offline: boolean) =>
-      page.evaluate((value) => {
-        (window as Window & { ayatanOffline?: boolean }).ayatanOffline = value;
-      }, offline);
+    const setOffline = (offline: boolean) => patchWfmPublicFixture(app, { ordersOffline: offline });
     const notice = view.locator("[data-ayatan-notice]");
     await setOffline(true);
     await view.locator("[data-ayatan-refresh]").click();

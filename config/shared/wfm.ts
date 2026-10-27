@@ -38,6 +38,23 @@ export const WFM_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   Accept: "application/json",
 });
 
+/** Public reads the renderer asks main to make, so every WFM call from this IP
+ *  shares the main-process rate budget. */
+export type WfmPublicLookup = "orders" | "item" | "statistics";
+
+export interface WfmPublicGetRequest {
+  lookup: WfmPublicLookup;
+  slug: string;
+  /** Automatic fills and refreshes; anything a user is waiting on leaves it unset. */
+  background?: boolean;
+}
+
+/** `status` is null when WFM never answered, which callers treat as transient. */
+export interface WfmPublicGetResponse {
+  status: number | null;
+  body: unknown;
+}
+
 /** Base URL for warframe.market static assets (icons, thumbnails). */
 const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
 

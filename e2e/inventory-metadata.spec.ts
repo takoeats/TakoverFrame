@@ -10,6 +10,7 @@ import {
   writeHarnessInventory,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { stubWfmPublicGet } from "./wfmPublicStub";
 import { createOfflineScenario } from "./offlineScenario";
 
 const expect = baseExpect.configure({ timeout: 20_000 });
@@ -61,30 +62,19 @@ test("inventory resolves missing Nightwave metadata and keeps catalog entries un
       },
     );
     const { page } = harness;
-    await page.addInitScript(() => {
-      const original = window.fetch;
-      window.fetch = async (input, init) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (url !== "https://api.warframe.market/v2/orders/item/prototype_shock_coils") {
-          return original(input, init);
-        }
-        return new Response(
-          JSON.stringify({
-            data: [
-              {
-                type: "sell",
-                platinum: 18,
-                quantity: 1,
-                rank: 0,
-                visible: true,
-                user: { ingameName: "FixtureSeller", status: "ingame" },
-              },
-            ],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      };
+    await stubWfmPublicGet(harness.app, {
+      orders: {
+        prototype_shock_coils: [
+          {
+            type: "sell",
+            platinum: 18,
+            quantity: 1,
+            rank: 0,
+            visible: true,
+            user: { ingameName: "FixtureSeller", status: "ingame" },
+          },
+        ],
+      },
     });
     await page.reload();
     await page.locator('#sidebar [data-view="inventory"]').click();

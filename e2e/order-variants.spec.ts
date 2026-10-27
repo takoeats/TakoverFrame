@@ -6,6 +6,7 @@ import {
   setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
+import { stubWfmPublicGet } from "./wfmPublicStub";
 
 test("mod variants survive create and edit, and stale item details cannot change the next item", async () => {
   test.setTimeout(180_000);
@@ -15,37 +16,26 @@ test("mod variants survive create and edit, and stale item details cannot change
     const { app, page } = harness;
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.addInitScript(() => {
-      const originalFetch = window.fetch;
-      window.fetch = async (input, init) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (!url.startsWith("https://api.warframe.market/")) return originalFetch(input, init);
-        const data = url.includes("/orders/item/")
-          ? [
-              {
-                type: "sell",
-                platinum: 80,
-                quantity: 2,
-                rank: 10,
-                subtype: "regular",
-                user: { ingameName: "RegularSeller", status: "ingame" },
-              },
-              {
-                type: "sell",
-                platinum: 150,
-                quantity: 2,
-                rank: 10,
-                subtype: "atragraph",
-                user: { ingameName: "FoilSeller", status: "ingame" },
-              },
-            ]
-          : { subtypes: ["regular", "atragraph"], tradingTax: 8000 };
-        return new Response(JSON.stringify({ data }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      };
+    await stubWfmPublicGet(app, {
+      orders: [
+        {
+          type: "sell",
+          platinum: 80,
+          quantity: 2,
+          rank: 10,
+          subtype: "regular",
+          user: { ingameName: "RegularSeller", status: "ingame" },
+        },
+        {
+          type: "sell",
+          platinum: 150,
+          quantity: 2,
+          rank: 10,
+          subtype: "atragraph",
+          user: { ingameName: "FoilSeller", status: "ingame" },
+        },
+      ],
+      item: { subtypes: ["regular", "atragraph"], tradingTax: 8000 },
     });
     await evaluateInMain(app, ({ app, ipcMain }) => {
       const load = process

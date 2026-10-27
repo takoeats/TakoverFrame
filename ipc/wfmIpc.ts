@@ -1,7 +1,7 @@
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import { isObject } from "./ipcValidators";
 import { toNonEmptyString } from "../config/shared/stringValidation";
-import type { WfmStatus } from "../config/shared/wfm";
+import type { WfmPublicGetResponse, WfmPublicLookup, WfmStatus } from "../config/shared/wfm";
 import { isWfmSlug } from "../config/shared/wfm";
 import { SUBTYPE_REQUIRED_CODE, subtypeChoicesOf } from "../config/shared/wfmOrders";
 import {
@@ -18,6 +18,7 @@ import {
 } from "./wfmValidators";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "../services/logger";
+import * as wfmClient from "../services/wfmClient";
 import * as wfmSession from "../services/wfmSession";
 import * as wfmOrders from "../services/wfmOrders";
 import * as wfmContracts from "../services/wfmContracts";
@@ -39,6 +40,7 @@ import {
   WFM_SET_VISIBLE,
   WFM_SEARCH_ITEMS,
   WFM_LOOKUP_ITEM,
+  WFM_PUBLIC_GET,
   MARKET_STATS_HISTORY_MERGE,
   WFM_GET_ME,
   WFM_SET_STATUS,
@@ -124,7 +126,38 @@ function _handleWfmAuthGiveUp(): void {
   win.webContents.send(WFM_NOTIFICATION, { type: "listener-auth-failed" });
 }
 
+const PUBLIC_LOOKUP_PATHS: Record<WfmPublicLookup, (slug: string) => ["v1" | "v2", string]> = {
+  orders: (slug) => ["v2", `/orders/item/${slug}`],
+  item: (slug) => ["v2", `/items/${slug}`],
+  statistics: (slug) => ["v1", `/items/${slug}/statistics`],
+};
+
+function registerPublicGet(): void {
+  handleAuthorized(
+    WFM_PUBLIC_GET,
+    assertMainRendererSender,
+    async (_event, payload): Promise<WfmPublicGetResponse> => {
+      const lookup = isObject(payload) ? payload.lookup : null;
+      const slug = isObject(payload) ? payload.slug : null;
+      if (
+        typeof lookup !== "string" ||
+        !Object.prototype.hasOwnProperty.call(PUBLIC_LOOKUP_PATHS, lookup) ||
+        !isWfmSlug(slug)
+      ) {
+        log.warn("[Security] wfm:public-get blocked due to invalid payload");
+        return { status: 400, body: null };
+      }
+      const [api, path] = PUBLIC_LOOKUP_PATHS[lookup as WfmPublicLookup](slug as string);
+      const priority =
+        isObject(payload) && payload.background === true ? "background" : "interactive";
+      return wfmClient.requestPublicGet(api, path, priority);
+    },
+  );
+}
+
 function register(): void {
+  // Public data, not account state: the E2E fixture leaves it to specs to stub.
+  registerPublicGet();
   if (registerWfmFixtures()) return; // E2E-only stub replaced the whole surface
 
   handleAuthorized(WFM_SIGNIN, assertMainRendererSender, async (_event, payload) => {

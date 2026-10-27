@@ -31,7 +31,7 @@
     type SellerStatusFilter,
   } from "../../lib/wfm/orderRows.js";
   import { ayatanSculptureBySlug } from "../../../config/shared/ayatanEndo.js";
-  import { formatWfmAssetUrl, titleFromSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
+  import { formatWfmAssetUrl, titleFromSlug } from "../../../config/shared/wfm.js";
   import type { WfmItemsLookup } from "../../types/ipc.js";
   import type { ParsedItem } from "../../types/inventory.js";
   import type { WfmLookupItem } from "../../types/market.js";
@@ -248,38 +248,21 @@
     if (selected?.slug === slug) tradingTax = tax;
   }
 
+  // v1 /items/{slug} answers 404 now, so v2 is the only shape.
   async function fetchTradingTax(slug: string): Promise<number | null> {
     try {
-      const response = await fetch(`https://api.warframe.market/v2/item/${slug}`, {
-        headers: WFM_HEADERS,
-      });
-      if (response.ok) {
-        const body = (await response.json()) as { data?: Record<string, unknown> };
-        const subtypes = body.data?.subtypes;
-        if (
-          Array.isArray(subtypes) &&
-          WFM_MOD_VARIANTS.every((variant) => subtypes.includes(variant))
-        ) {
-          modVariants.set(slug, [...WFM_MOD_VARIANTS]);
-          if (selected?.slug === slug) subtypeOptions = [...WFM_MOD_VARIANTS];
-        }
-        const tax = Number(body.data?.tradingTax ?? body.data?.trading_tax);
-        if (Number.isFinite(tax) && tax >= 0) return tax;
+      const response = await invoke("wfmPublicGet", { lookup: "item", slug });
+      if (response.status !== 200) return null;
+      const data = (response.body as { data?: Record<string, unknown> } | null)?.data;
+      const subtypes = data?.subtypes;
+      if (
+        Array.isArray(subtypes) &&
+        WFM_MOD_VARIANTS.every((variant) => subtypes.includes(variant))
+      ) {
+        modVariants.set(slug, [...WFM_MOD_VARIANTS]);
+        if (selected?.slug === slug) subtypeOptions = [...WFM_MOD_VARIANTS];
       }
-    } catch {
-      // fall through to the v1 shape
-    }
-    try {
-      const response = await fetch(`https://api.warframe.market/v1/items/${slug}`, {
-        headers: WFM_HEADERS,
-      });
-      if (!response.ok) return null;
-      const body = (await response.json()) as {
-        payload?: { item?: { items_in_set?: Array<Record<string, unknown>> } };
-      };
-      const set = body.payload?.item?.items_in_set ?? [];
-      const row = set.find((entry) => entry.url_name === slug) ?? set[0];
-      const tax = Number(row?.trading_tax);
+      const tax = Number(data?.tradingTax ?? data?.trading_tax);
       return Number.isFinite(tax) && tax >= 0 ? tax : null;
     } catch {
       return null;

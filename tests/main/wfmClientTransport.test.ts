@@ -34,7 +34,7 @@ vi.mock("node:https", () => {
   return { default: { request }, request };
 });
 
-import { request, __test__ } from "../../services/wfmClient";
+import { request, requestPublicGet, __test__ } from "../../services/wfmClient";
 import { __schedulerTest__ } from "../../services/wfmScheduler";
 
 function fakeChromiumNet(errorMessage: string) {
@@ -92,5 +92,45 @@ describe("chromium transport fallback", () => {
     // No latch either: the next call still tries chromium first.
     await expect(request("GET", "/items")).rejects.toMatchObject({ code: "WFM_NETWORK_ERROR" });
     expect(requestFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("node transport and public reads", () => {
+  beforeEach(() => {
+    state.scripted.length = 0;
+    state.requests.length = 0;
+    __test__.setClearanceForTest(null, null);
+    __test__.setChromiumNetForTest(null);
+    __schedulerTest__.reset();
+    __schedulerTest__.configure({ MAX_RETRIES: 0 });
+  });
+
+  afterEach(() => {
+    __test__.setChromiumNetForTest(undefined);
+    __schedulerTest__.reset();
+  });
+
+  it("names the app in the User-Agent, since WFM 403s a request without one", async () => {
+    state.scripted.push({ status: 200, body: '{"ok":true}' });
+    await request("GET", "/items");
+    expect(state.requests[0]["User-Agent"]).toMatch(/^TakoverFrame\/\S+ \(\+https:\/\//);
+  });
+
+  it("returns a 4xx as data and sends no session", async () => {
+    state.scripted.push({ status: 404, body: '{"error":"nope"}' });
+    await expect(requestPublicGet("v2", "/items/no_such_item")).resolves.toEqual({
+      status: 404,
+      body: null,
+    });
+    expect(state.requests[0]["Authorization"]).toBeUndefined();
+    expect(state.requests[0]["Cookie"]).toBeUndefined();
+  });
+
+  it("reports an unanswered request as a null status", async () => {
+    // Nothing scripted: the fake socket errors out.
+    await expect(requestPublicGet("v1", "/items/ash_prime_set/statistics")).resolves.toEqual({
+      status: null,
+      body: null,
+    });
   });
 });

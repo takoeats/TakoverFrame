@@ -1,6 +1,8 @@
 import { WFM_PRICE_BASIS } from "../../../../config/shared/wfmStats.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { stubWfmPublicGetViaFetch } from "./wfmPublicGetStub.js";
+
 const BACKEND_URL = "https://backend.test";
 const originalFetch = globalThis.fetch;
 
@@ -67,11 +69,13 @@ beforeEach(() => {
   vi.stubEnv("VITE_WFM_BACKEND_URL", BACKEND_URL);
   vi.stubEnv("VITE_WFM_BACKEND_DIRECT_FALLBACK", "always");
   vi.stubEnv("VITE_WFM_BACKEND_BOOTSTRAP_ENABLED", ""); // disable bootstrap in tests
+  stubWfmPublicGetViaFetch();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   globalThis.fetch = originalFetch;
 });
 
@@ -201,24 +205,15 @@ describe("WFM backend fallback integration", () => {
     );
   });
 
-  it("releases the price queue after a direct fallback timeout", async () => {
-    vi.useFakeTimers();
+  it("releases the price queue when main reports a direct read went unanswered", async () => {
     let directCalls = 0;
-    const fetchMock = vi.fn((input: Request | URL | string, init?: Parameters<typeof fetch>[1]) => {
+    const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url = toUrl(input);
-      if (url.startsWith(`${BACKEND_URL}/v1/prices/`)) {
-        return Promise.resolve(new Response("", { status: 503 }));
-      }
+      if (url.startsWith(`${BACKEND_URL}/v1/prices/`)) return new Response("", { status: 503 });
       if (url.startsWith("https://api.warframe.market/v1/items/")) {
         directCalls += 1;
-        if (directCalls === 2) return Promise.resolve(jsonResponse(200, statsPayload(25)));
-        return new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-        });
+        if (directCalls === 2) return jsonResponse(200, statsPayload(25));
+        throw new Error("timed out in main");
       }
       throw new Error(`Unexpected URL: ${url}`);
     });
@@ -226,7 +221,6 @@ describe("WFM backend fallback integration", () => {
     const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
 
     const stalled = fetchPriceBySlug("stalled_item", { priority: "normal" });
-    await vi.advanceTimersByTimeAsync(10_000);
     await expect(stalled).resolves.toMatchObject({ status: "transient" });
 
     await expect(fetchPriceBySlug("recovered_item", { priority: "normal" })).resolves.toMatchObject(
@@ -514,30 +508,20 @@ describe("WFM backend fallback integration", () => {
     );
   });
 
-  it("settles item metadata after a direct fallback timeout", async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn((input: Request | URL | string, init?: Parameters<typeof fetch>[1]) => {
+  it("settles item metadata when main reports a direct read went unanswered", async () => {
+    const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url = toUrl(input);
-      if (url === `${BACKEND_URL}/v1/meta/stalled_item`) {
-        return Promise.resolve(new Response("", { status: 503 }));
-      }
+      if (url === `${BACKEND_URL}/v1/meta/stalled_item`) return new Response("", { status: 503 });
       if (url === "https://api.warframe.market/v2/items/stalled_item") {
-        return new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-        });
+        throw new Error("timed out in main");
       }
       throw new Error(`Unexpected URL: ${url}`);
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const { fetchWfmItemMetaBySlug } = await import("../../../../src/lib/wfm/wfmItemMeta.js");
 
-    const request = fetchWfmItemMetaBySlug("stalled_item", { priority: "normal" });
-    await vi.advanceTimersByTimeAsync(10_000);
-
-    await expect(request).resolves.toBeNull();
+    await expect(
+      fetchWfmItemMetaBySlug("stalled_item", { priority: "normal" }),
+    ).resolves.toBeNull();
   });
 });

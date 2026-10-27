@@ -8,7 +8,10 @@ import {
   type WfmRequestPriority,
 } from "./wfmScheduler";
 import { WfmApiError } from "./wfmTypes";
+import { isAuctionSearchPath, waitForAuctionSearchSlot } from "./wfmAuctionSearchBudget";
+import { wfmChromiumUserAgent, wfmUserAgent } from "./wfmUserAgent";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { WfmPublicGetResponse } from "../config/shared/wfm";
 
 const log = withScope("wfmClient");
 
@@ -91,12 +94,6 @@ function _extractCsrfMeta(html: string): string | null {
     /<meta\b(?=[^>]*\bcontent=["']([^"']+)["'])(?=[^>]*\bname=["']csrf-token["'])[^>]*>/i,
   );
   return contentFirst?.[1] ?? null;
-}
-
-// We ARE a Chromium runtime - identify as one when the plain UA gets scored.
-function _browserUa(): string {
-  const os = process.platform === "win32" ? "Windows NT 10.0; Win64; x64" : "X11; Linux x86_64";
-  return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome ?? "136.0.0.0"} Safari/537.36`;
 }
 
 type CsrfAttemptResult = "ok" | "challenge" | "no-token";
@@ -267,11 +264,11 @@ function _ensureCsrfToken(): Promise<string | null> {
 
 async function _fetchCsrfToken(): Promise<string | null> {
   try {
-    // Browser UA first: it matches the chromium transport's TLS fingerprint,
+    // Chromium UA first: it matches the chromium transport's TLS fingerprint,
     // and a mismatched pair is itself a bot signal.
-    const first = await _csrfAttempt(_browserUa());
+    const first = await _csrfAttempt(wfmChromiumUserAgent());
     if (first === "ok") return _csrfToken;
-    if (first === "no-token" && (await _csrfAttempt("Mozilla/5.0 WFHelper/1.0")) === "ok") {
+    if (first === "no-token" && (await _csrfAttempt(wfmUserAgent())) === "ok") {
       return _csrfToken;
     }
     // Challenged (or persistently tokenless): only a real page can run the
@@ -373,6 +370,8 @@ async function _request(
   // Ride the earned clearance: the cookie only passes with the UA it was
   // earned under, so both travel together on every request.
   if (_clearanceUa) headers["User-Agent"] = _clearanceUa;
+  // Node https sends no User-Agent at all, which WFM now answers with 403.
+  if (!headers["User-Agent"]) headers["User-Agent"] = net ? wfmChromiumUserAgent() : wfmUserAgent();
   if (_clearanceCookie) {
     headers["Cookie"] = headers["Cookie"]
       ? `${headers["Cookie"]}; ${_clearanceCookie}`
@@ -792,12 +791,24 @@ function _coreRequest(
   );
 }
 
+// Auction search waits for its own budget before taking a scheduler slot, so a
+// queued search never holds a slot other requests could use.
+async function _budgetedCoreRequest(
+  baseUrl: string,
+  method: string,
+  path: string,
+  opts: CoreRequestOptions,
+): Promise<unknown> {
+  if (isAuctionSearchPath(path)) await waitForAuctionSearchSlot(opts.priority);
+  return _coreRequest(baseUrl, method, path, opts);
+}
+
 export function request(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
   path: string,
   opts: WfmRequestOptions = {},
 ): Promise<unknown> {
-  return _coreRequest(BASE_URL, method, path, { ...opts, label: "WFMClient" });
+  return _budgetedCoreRequest(BASE_URL, method, path, { ...opts, label: "WFMClient" });
 }
 
 /** Where WFM redirects `path`, or null when it serves the path directly. A
@@ -854,10 +865,53 @@ export function requestV2(
   path: string,
   opts: WfmRequestOptions = {},
 ): Promise<unknown> {
-  return _coreRequest(BASE_URL_V2, method, path, {
+  return _budgetedCoreRequest(BASE_URL_V2, method, path, {
     ...opts,
     baseHeaders: { Crossplay: "true" },
     label: "WFMClient v2",
+  });
+}
+
+/** Anonymous read for public lookups (order books, item details, statistics).
+ *  It sends no session and never opens a challenge window, and a 4xx comes back
+ *  as data because "no such item" is an answer the caller caches. */
+export function requestPublicGet(
+  api: "v1" | "v2",
+  path: string,
+  priority?: WfmRequestPriority,
+): Promise<WfmPublicGetResponse> {
+  const url = (api === "v2" ? BASE_URL_V2 : BASE_URL) + path;
+  const label = "WFMClient public";
+  return scheduleWfmRequest<WfmPublicGetResponse>(
+    async (): Promise<WfmAttemptOutcome<WfmPublicGetResponse>> => {
+      let res: WfmResponseLike;
+      let body: unknown = null;
+      try {
+        res = await _request("GET", url, { ...WFM_BASE_HEADERS, Crossplay: "true" }, null);
+        if (res.ok) body = await res.json();
+      } catch (err) {
+        const error = new WfmApiError(
+          `${label} network error: ${normalizeErrorMessage(err)}`,
+          "WFM_NETWORK_ERROR",
+        );
+        return _transportFailure(error, true);
+      }
+      if (res.status === 429) return rateLimitFailure(label, res);
+      if (res.status >= 500) {
+        return {
+          kind: "failure",
+          status: res.status,
+          retryable: true,
+          transient: true,
+          error: new WfmApiError(`${label} HTTP ${res.status}`, "WFM_API_ERROR", res.status),
+        };
+      }
+      return { kind: "ok", value: { status: res.status, body } };
+    },
+    { label, priority },
+  ).catch((err: unknown) => {
+    log.warn(`[${label}] ${path} failed:`, normalizeErrorMessage(err));
+    return { status: null, body: null };
   });
 }
 

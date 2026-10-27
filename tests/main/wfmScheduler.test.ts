@@ -91,6 +91,40 @@ describe("wfm scheduler", () => {
     });
   });
 
+  describe("background budget", () => {
+    it("paces background work at its own rate while interactive work keeps the rest", async () => {
+      __schedulerTest__.configure({
+        BURST_TOKENS: 10,
+        RATE_PER_SECOND: 10,
+        MAX_CONCURRENT: 10,
+        MAX_BACKGROUND_CONCURRENT: 10,
+      });
+      const start = Date.now();
+      const background: number[] = [];
+      const interactive: number[] = [];
+      const sweep = [0, 1, 2].map(() =>
+        scheduleWfmRequest(
+          async () => {
+            background.push(Date.now() - start);
+            return ok(null);
+          },
+          { priority: "background" },
+        ),
+      );
+      const clicks = [0, 1].map(() =>
+        scheduleWfmRequest(async () => {
+          interactive.push(Date.now() - start);
+          return ok(null);
+        }),
+      );
+
+      await vi.advanceTimersByTimeAsync(2_100);
+      await Promise.all([...sweep, ...clicks]);
+      expect(interactive).toEqual([0, 0]);
+      expect(background).toEqual([0, 1_000, 2_000]);
+    });
+  });
+
   describe("concurrency cap", () => {
     it("never runs more than MAX_CONCURRENT sends at once", async () => {
       __schedulerTest__.configure({
@@ -464,6 +498,7 @@ describe("wfm scheduler", () => {
         MAX_BACKGROUND_CONCURRENT: 1,
         BURST_TOKENS: 50,
         RATE_PER_SECOND: 10_000,
+        BACKGROUND_RATE_PER_SECOND: 10_000,
       });
       const hold = deferred<void>();
       const order: string[] = [];
@@ -505,6 +540,7 @@ describe("wfm scheduler", () => {
         MAX_BACKGROUND_CONCURRENT: 1,
         BURST_TOKENS: 50,
         RATE_PER_SECOND: 10_000,
+        BACKGROUND_RATE_PER_SECOND: 10_000,
       });
       const holds = Array.from({ length: 3 }, () => deferred<void>());
       let interactiveRan = false;

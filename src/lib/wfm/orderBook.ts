@@ -1,6 +1,5 @@
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { isCacheEntryFresh, normalizeRank } from "../../../config/shared/numeric.js";
-import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {
   extractWfmOrderList,
@@ -8,7 +7,7 @@ import {
   normalizeWfmOrderBookSide,
   type WfmOrderBookEntry,
 } from "../../../config/shared/wfmOrders.js";
-import { withAbortTimeout } from "../../../config/shared/fetchWithTimeout.js";
+import { invoke } from "../ipc.js";
 import { createPriorityRequestQueue } from "./requestPolicy.js";
 import { log } from "../log.js";
 
@@ -28,7 +27,6 @@ type ItemOrderBookResult =
 
 const ORDERBOOK_TTL_MS = 45_000;
 const ORDERBOOK_NO_DATA_TTL_MS = 3 * 60 * 1000;
-const DIRECT_ORDER_BOOK_FETCH_TIMEOUT_MS = 10_000;
 const orderBookQueue = createPriorityRequestQueue({
   priorities: ["interactive", "background"] as const,
   maxConcurrent: 4,
@@ -40,7 +38,6 @@ interface OrderBookDebugCounters {
   cacheHitOk: number;
   cacheHitNoData: number;
   httpCalls: number;
-  v1FallbackCalls: number;
   resultOk: number;
   resultNoData: number;
   resultError: number;
@@ -60,7 +57,6 @@ const orderBookDebugCounters: OrderBookDebugCounters = {
   cacheHitOk: 0,
   cacheHitNoData: 0,
   httpCalls: 0,
-  v1FallbackCalls: 0,
   resultOk: 0,
   resultNoData: 0,
   resultError: 0,
@@ -76,41 +72,35 @@ function isFresh(entry: CacheEntry): boolean {
   });
 }
 
-async function fetchRawOrdersFromEndpoint(
-  url: string,
+async function fetchRawOrders(
+  slug: string,
+  background: boolean,
 ): Promise<{ data: unknown[] | null; transient: boolean }> {
   bumpCounter("httpCalls");
-
   try {
-    return await withAbortTimeout(DIRECT_ORDER_BOOK_FETCH_TIMEOUT_MS, async (signal) => {
-      const response = await fetch(url, { headers: WFM_HEADERS, signal });
-      if (response.status === 429 || response.status >= 500) {
-        return { data: null, transient: true };
-      }
-      if (!response.ok) return { data: null, transient: false };
-
-      const rawOrders = extractWfmOrderList(await response.json());
-      if (!rawOrders) return { data: null, transient: false };
-      return { data: rawOrders, transient: false };
-    });
+    const response = await invoke("wfmPublicGet", { lookup: "orders", slug, background });
+    if (response.status === null || response.status === 429 || response.status >= 500) {
+      return { data: null, transient: true };
+    }
+    if (response.status < 200 || response.status >= 300) return { data: null, transient: false };
+    return { data: extractWfmOrderList(response.body), transient: false };
   } catch {
-    // A stalled or unparsable body is transient; a v1 miss would cache it as not_found.
     return { data: null, transient: true };
   }
 }
 
+// v1 /items/{slug}/orders answers 403 "Deprecated", so v2 is the only source.
 async function fetchDirectOrderBook(
   slug: string,
   rank: number | null,
   subtype: string | null,
+  background: boolean,
 ): Promise<ItemOrderBookResult> {
-  const v2Attempt = await fetchRawOrdersFromEndpoint(
-    `https://api.warframe.market/v2/orders/item/${slug}`,
-  );
-  if (v2Attempt.data) {
+  const attempt = await fetchRawOrders(slug, background);
+  if (attempt.data) {
     bumpCounter("resultOk");
     // A 200 with no orders is what an "empty listing" report looks like; keep the trace.
-    if (v2Attempt.data.length === 0) log.warn(`[OrderBook] v2 returned no orders for ${slug}`);
+    if (attempt.data.length === 0) log.warn(`[OrderBook] v2 returned no orders for ${slug}`);
     return {
       status: "ok",
       data: {
@@ -118,59 +108,19 @@ async function fetchDirectOrderBook(
         // Renderer keeps the FULL book - the browse tab pages through it; the
         // default 500 cap is for the worker's KV-bound prewarm path only.
         sell: normalizeWfmOrderBookSide(
-          v2Attempt.data,
+          attempt.data,
           "sell",
           rank,
           Number.MAX_SAFE_INTEGER,
           subtype,
         ),
-        buy: normalizeWfmOrderBookSide(
-          v2Attempt.data,
-          "buy",
-          rank,
-          Number.MAX_SAFE_INTEGER,
-          subtype,
-        ),
+        buy: normalizeWfmOrderBookSide(attempt.data, "buy", rank, Number.MAX_SAFE_INTEGER, subtype),
         timestamp: Date.now(),
       },
     };
   }
-  if (v2Attempt.transient) {
-    bumpCounter("resultError");
-    return { status: "error", slug };
-  }
-
-  bumpCounter("v1FallbackCalls");
-  const v1Attempt = await fetchRawOrdersFromEndpoint(
-    `https://api.warframe.market/v1/items/${slug}/orders`,
-  );
-  if (v1Attempt.data) {
-    bumpCounter("resultOk");
-    return {
-      status: "ok",
-      data: {
-        slug,
-        sell: normalizeWfmOrderBookSide(
-          v1Attempt.data,
-          "sell",
-          rank,
-          Number.MAX_SAFE_INTEGER,
-          subtype,
-        ),
-        buy: normalizeWfmOrderBookSide(
-          v1Attempt.data,
-          "buy",
-          rank,
-          Number.MAX_SAFE_INTEGER,
-          subtype,
-        ),
-        timestamp: Date.now(),
-      },
-    };
-  }
-
-  bumpCounter(v1Attempt.transient ? "resultError" : "resultNoData");
-  return v1Attempt.transient ? { status: "error", slug } : { status: "not_found", slug };
+  bumpCounter(attempt.transient ? "resultError" : "resultNoData");
+  return attempt.transient ? { status: "error", slug } : { status: "not_found", slug };
 }
 
 export function resetOrderBookDebugCounters(): void {
@@ -257,6 +207,7 @@ export async function fetchItemOrderBookBySlug(
           normalizedSlug,
           normalizedRank,
           normalizedSubtype,
+          priority === "background",
         );
         if (result.status === "ok") {
           const data: ItemOrderBook = result.data;
